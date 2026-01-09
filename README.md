@@ -1,63 +1,251 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# DCMCO Website
 
-## Getting Started
+The official marketing website for DCM CO, a leading AI consultancy specializing in the construction industry.
 
-### Prerequisites
+## Tech Stack
 
-This project uses the `@dcmco/design-system` package hosted on GCP Artifact Registry. To install dependencies, you need to authenticate with the registry.
+- **Framework**: [Next.js 14](https://nextjs.org/) (Pages Router)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [@dcmco/design-system](https://github.com/dcmco/design-system) (Stitches-based)
+- **Output**: Static Export (configured for GCS hosting)
+- **Code Quality**: ESLint + Prettier
+- **Package Manager**: pnpm
 
-1. Copy the example npm configuration:
-   ```bash
-   cp .npmrc.example .npmrc
-   ```
+## Prerequisites
 
-2. Authenticate with GCP Artifact Registry:
-   ```bash
-   npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
-   ```
+Before you begin, ensure you have the following installed:
 
-   This will add your authentication token to the `.npmrc` file. The `.npmrc` file is git-ignored to keep credentials secure.
+- **Node.js**: v18.0.0 or higher
+- **pnpm**: v8.0.0 or higher (or npm/yarn)
+- **GCP CLI**: For authenticating with GCP Artifact Registry
 
-3. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+## Installation
 
-### Running the Development Server
-
-First, run the development server:
+### 1. Clone the repository
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd dcmco-website
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Authenticate with GCP Artifact Registry
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+This project uses the `@dcmco/design-system` package hosted on GCP Artifact Registry. You need to authenticate before installing dependencies.
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+```bash
+# Copy the example npm configuration
+cp .npmrc.example .npmrc
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+# Authenticate with GCP Artifact Registry
+npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+This will add your authentication token to the `.npmrc` file. **Note**: `.npmrc` is git-ignored to keep credentials secure.
 
-## Learn More
+### 3. Install dependencies
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm install
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+### Available Commands
 
-## Deploy on Vercel
+```bash
+# Start development server (http://localhost:3000)
+pnpm dev
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Build for production (outputs to /out directory)
+pnpm build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+# Start production server (serves the /out directory)
+pnpm start
+
+# Run ESLint to check code quality
+pnpm lint
+
+# Format code with Prettier
+pnpm format
+```
+
+### Development Workflow
+
+1. Start the development server:
+   ```bash
+   pnpm dev
+   ```
+
+2. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+3. Edit files in the `pages/` directory - changes will hot-reload automatically
+
+4. Before committing, run linting and formatting:
+   ```bash
+   pnpm lint
+   pnpm format
+   ```
+
+## Project Structure
+
+```
+dcmco-website/
+├── pages/                  # Next.js pages (file-based routing)
+│   ├── _app.tsx           # Custom App wrapper
+│   ├── _document.tsx      # Custom Document (HTML structure)
+│   ├── index.tsx          # Homepage
+│   └── 404.tsx            # Custom 404 page
+├── public/                # Static assets (images, fonts, etc.)
+├── styles/                # Global styles
+├── .npmrc.example         # NPM registry configuration template
+├── .prettierrc            # Prettier configuration
+├── .eslintrc.json         # ESLint configuration
+├── next.config.mjs        # Next.js configuration
+├── tsconfig.json          # TypeScript configuration
+└── package.json           # Project dependencies
+```
+
+## Adding New Pages
+
+Next.js uses file-based routing. To add a new page:
+
+1. Create a new file in the `pages/` directory:
+   ```tsx
+   // pages/about.tsx
+   import Head from 'next/head';
+
+   export default function About() {
+     return (
+       <>
+         <Head>
+           <title>About - DCMCO</title>
+           <meta name="description" content="About DCMCO" />
+         </Head>
+         <main>
+           <h1>About Us</h1>
+         </main>
+       </>
+     );
+   }
+   ```
+
+2. The page will be automatically available at `/about`
+
+3. For nested routes, create folders:
+   - `pages/blog/index.tsx` → `/blog`
+   - `pages/blog/[slug].tsx` → `/blog/[slug]` (dynamic route)
+
+## Deployment
+
+This project is configured for static export to Google Cloud Storage (GCS).
+
+### Build Process
+
+```bash
+# Build the static site
+pnpm build
+```
+
+This generates static HTML files in the `/out` directory, which can be deployed to:
+- Google Cloud Storage
+- AWS S3
+- GitHub Pages
+- Any static hosting provider
+
+### Deployment to GCS
+
+The built files in `/out` can be uploaded to a GCS bucket configured for static website hosting.
+
+**Note**: Since this is a static export, API routes and server-side features are not available. All pages are pre-rendered at build time.
+
+## Design System
+
+This project uses the `@dcmco/design-system` component library. Import components as needed:
+
+```tsx
+import { Button, Logo } from '@dcmco/design-system';
+
+export default function Example() {
+  return (
+    <div>
+      <Logo size="md" />
+      <Button variant="primary">Click Me</Button>
+    </div>
+  );
+}
+```
+
+Refer to the [design system documentation](https://github.com/dcmco/design-system) for available components and their props.
+
+## Code Quality
+
+### ESLint
+
+This project uses strict ESLint rules for code quality:
+- TypeScript strict mode
+- No unused variables
+- Prefer const over let
+- React best practices
+
+### Prettier
+
+Code formatting is enforced with Prettier:
+- Single quotes
+- 2 space indentation
+- Trailing commas (ES5)
+- Semi-colons enabled
+
+Run `pnpm format` to auto-format all files.
+
+## Contributing
+
+1. Create a new branch from `main`:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. Make your changes and commit:
+   ```bash
+   git add .
+   git commit -m "Description of changes"
+   ```
+
+3. Push your branch and create a pull request:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+4. Ensure all checks pass:
+   - ESLint: `pnpm lint`
+   - TypeScript: `pnpm build`
+   - Formatting: `pnpm format`
+
+## Troubleshooting
+
+### Authentication Issues
+
+If you get 401 errors when installing dependencies:
+```bash
+# Re-authenticate with GCP
+npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+
+# Try installing again
+pnpm install
+```
+
+### Build Errors
+
+If you see "API Routes cannot be used with output: export":
+- This is expected if there are API routes in the `pages/api` directory
+- Remove unused API routes or change the `output` setting in `next.config.mjs`
+
+## Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [DCMCO Design System](https://github.com/dcmco/design-system)
+- [GCP Artifact Registry](https://cloud.google.com/artifact-registry/docs)
+
+## License
+
+MIT License - Copyright (c) 2026 DCM CO

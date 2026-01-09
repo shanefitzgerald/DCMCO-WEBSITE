@@ -1,6 +1,12 @@
 import Head from "next/head";
+import { Button } from "@dcmco/design-system";
 
 export default function Home() {
+  const handleClick = () => {
+    // eslint-disable-next-line no-console
+    console.log("clicked");
+  };
+
   return (
     <>
       <Head>
@@ -16,12 +22,16 @@ export default function Home() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px',
-        textAlign: 'center'
+        textAlign: 'center',
+        gap: '20px'
       }}>
         <main>
           <h1>DCMCO Website</h1>
           <p>A construction industry AI consultancy</p>
         </main>
+        <Button onClick={handleClick} variant="primary">
+          Click Me
+        </Button>
       </div>
     </>
   );
