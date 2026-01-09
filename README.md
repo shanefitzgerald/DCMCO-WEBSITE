@@ -2,6 +2,29 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Getting Started
 
+### Prerequisites
+
+This project uses the `@dcmco/design-system` package hosted on GCP Artifact Registry. To install dependencies, you need to authenticate with the registry.
+
+1. Copy the example npm configuration:
+   ```bash
+   cp .npmrc.example .npmrc
+   ```
+
+2. Authenticate with GCP Artifact Registry:
+   ```bash
+   npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+   ```
+
+   This will add your authentication token to the `.npmrc` file. The `.npmrc` file is git-ignored to keep credentials secure.
+
+3. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+
+### Running the Development Server
+
 First, run the development server:
 
 ```bash

@@ -1,0 +1,4 @@
+@dcmco:registry=https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/
+//australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:always-auth=true
+# Run: npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+# This will add the authentication token to your local .npmrc file
