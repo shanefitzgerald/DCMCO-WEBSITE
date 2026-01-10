@@ -2,8 +2,10 @@
  * Central export point for all infrastructure stacks
  */
 
-export { BaseStack, BaseStackConfig } from "./base-stack";
-export { StorageStack, StorageStackConfig } from "./storage-stack";
+export { BaseStack } from "./base-stack";
+export type { BaseStackConfig } from "./base-stack";
+export { StorageStack } from "./storage-stack";
+export type { StorageStackConfig } from "./storage-stack";
 // export { StorageStackExample, StorageStackExampleConfig } from "./storage-stack.example";
 
 // Future exports:
