@@ -179,6 +179,38 @@ The deployment workflow automatically sets optimized cache-control headers for d
 
 The cache headers are applied automatically during the GitHub Actions deployment workflow using `gsutil -m` for parallel operations.
 
+### CDN Cache Invalidation
+
+If you're using Google Cloud CDN, the deployment workflow can automatically invalidate the CDN cache after each deployment.
+
+**To enable CDN cache invalidation:**
+
+1. Go to your repository settings: `Settings → Secrets and variables → Actions → Variables`
+2. Click "New repository variable"
+3. Add the following variable:
+   - **Name:** `CDN_URL_MAP`
+   - **Value:** Your CDN URL map name (e.g., `dcmco-website-cdn`)
+
+**How it works:**
+- After deployment, the workflow checks if `CDN_URL_MAP` is configured
+- If configured, it invalidates all paths (`/*`) in the CDN
+- Runs asynchronously using `gcloud compute url-maps invalidate-cdn-cache`
+- Does not block deployment if invalidation fails
+- Shows clear status messages in the deployment logs
+
+**Example:**
+```bash
+# Find your URL map name
+gcloud compute url-maps list
+
+# Set the variable in GitHub
+# Settings → Actions → Variables → New variable
+# Name: CDN_URL_MAP
+# Value: your-url-map-name
+```
+
+**Note:** If CDN is not configured, the step is automatically skipped with no impact on deployment.
+
 ## Design System
 
 This project uses the `@dcmco/design-system` component library. Import components as needed:

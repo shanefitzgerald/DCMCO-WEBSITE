@@ -229,7 +229,36 @@ jobs:
           echo "✅ Website is accessible and serving content"
 
       # ============================================
-      # 7. Summary
+      # 7. CDN Cache Invalidation (if configured)
+      # ============================================
+      - name: Invalidate CDN cache
+        if: ${{ vars.CDN_URL_MAP != '' }}
+        continue-on-error: true
+        run: |
+          echo "🔄 Invalidating CDN cache..."
+          echo "CDN URL Map: ${{ vars.CDN_URL_MAP }}"
+
+          # Invalidate all paths in the CDN
+          gcloud compute url-maps invalidate-cdn-cache "${{ vars.CDN_URL_MAP }}" \
+            --path "/*" \
+            --async \
+            --quiet || {
+              echo "⚠️  CDN cache invalidation failed, but continuing deployment"
+              echo "This is not critical - cache will expire naturally"
+              exit 0
+            }
+
+          echo "✓ CDN cache invalidation started (running asynchronously)"
+          echo "Note: Cache invalidation may take a few minutes to complete"
+
+      - name: Skip CDN invalidation
+        if: ${{ vars.CDN_URL_MAP == '' }}
+        run: |
+          echo "ℹ️  No CDN configured (CDN_URL_MAP not set)"
+          echo "Skipping cache invalidation step"
+
+      # ============================================
+      # 8. Summary
       # ============================================
       - name: Deployment Summary
         if: always()
