@@ -60,6 +60,19 @@ const config = getConfig();
 new StorageStack(app, "dcmco-website-storage", config);
 
 /**
+ * Example Stack Instantiation (from storage-stack.example.ts):
+ *
+ * // import { StorageStackExample } from "./stacks/storage-stack.example";
+ *
+ * // new StorageStackExample(app, "example-storage-stack", {
+ * //   ...config,
+ * //   bucketName: "example-bucket-name",
+ * //   bucketLocation: "AUSTRALIA-SOUTHEAST1",
+ * //   enableVersioning: true,
+ * // });
+ */
+
+/**
  * Future Stacks (uncomment when ready to implement):
  *
  * // CDN Stack - Cloud CDN with Load Balancer
