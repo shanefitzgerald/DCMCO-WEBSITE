@@ -211,6 +211,22 @@ gcloud compute url-maps list
 
 **Note:** If CDN is not configured, the step is automatically skipped with no impact on deployment.
 
+### Workflow Performance
+
+The deployment workflows are optimized for speed using aggressive caching strategies:
+
+- **Dependencies**: pnpm store cache + infrastructure node_modules cache
+- **CDKTF**: CLI global cache + provider bindings cache
+- **Build**: Next.js compilation cache
+- **Uploads**: Incremental rsync (only changed files)
+
+**Expected Performance:**
+- Cold cache (first run): ~4-5 minutes
+- Warm cache (typical): ~2-3 minutes
+- Code changes only: ~3-4 minutes
+
+For detailed performance optimization documentation, see [`.github/PERFORMANCE.md`](.github/PERFORMANCE.md).
+
 ## Design System
 
 This project uses the `@dcmco/design-system` component library. Import components as needed:

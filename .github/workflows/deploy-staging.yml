@@ -37,6 +37,33 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
+      # Cache CDKTF CLI global installation
+      - name: Cache CDKTF CLI
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/global
+          key: ${{ runner.os }}-cdktf-cli-${{ hashFiles('infrastructure/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-cdktf-cli-
+
+      # Cache infrastructure node_modules separately
+      - name: Cache infrastructure dependencies
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/node_modules
+          key: ${{ runner.os }}-infra-${{ hashFiles('infrastructure/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-infra-
+
+      # Cache CDKTF provider bindings (significant time saver)
+      - name: Cache CDKTF provider bindings
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/imports
+          key: ${{ runner.os }}-cdktf-imports-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-cdktf-imports-
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -80,31 +107,35 @@ jobs:
       # ============================================
       - name: Install CDKTF CLI
         run: |
-          echo "=== Before installing CDKTF CLI ==="
-          echo "Current directory: $(pwd)"
-          echo "Checking for .npmrc:"
-          ls -la .npmrc || echo "No .npmrc found"
-          echo "=== .npmrc contents ==="
-          cat .npmrc || echo "Cannot read .npmrc"
-          echo "=== Installing CDKTF CLI ==="
-          pnpm install -g cdktf-cli@^0.20.0
+          if command -v cdktf &> /dev/null; then
+            echo "✓ CDKTF CLI already available (from cache)"
+            cdktf --version
+          else
+            echo "Installing CDKTF CLI..."
+            pnpm install -g cdktf-cli@^0.20.0
+          fi
 
       - name: Install infrastructure dependencies
         working-directory: ./infrastructure
         run: |
-          echo "=== Checking for .npmrc in infrastructure directory ==="
-          ls -la ../.npmrc || echo "No .npmrc in parent directory"
-          ls -la .npmrc || echo "No .npmrc in infrastructure directory"
-
-          echo "=== Contents of parent .npmrc ==="
-          cat ../.npmrc || echo "Cannot read parent .npmrc"
-
-          echo "=== Running pnpm install ==="
-          pnpm install
+          if [ -d "node_modules" ] && [ -n "$(ls -A node_modules 2>/dev/null)" ]; then
+            echo "✓ Infrastructure dependencies restored from cache"
+            echo "Running pnpm install --prefer-offline for verification..."
+            pnpm install --prefer-offline --frozen-lockfile
+          else
+            echo "Installing infrastructure dependencies..."
+            pnpm install --frozen-lockfile
+          fi
 
       - name: Generate CDKTF provider bindings
         working-directory: ./infrastructure
-        run: pnpm run get
+        run: |
+          if [ -d "imports" ] && [ -n "$(ls -A imports 2>/dev/null)" ]; then
+            echo "✓ CDKTF provider bindings restored from cache"
+          else
+            echo "Generating CDKTF provider bindings..."
+            pnpm run get
+          fi
 
       - name: Create infrastructure .env file
         working-directory: ./infrastructure
@@ -153,30 +184,24 @@ jobs:
       # ============================================
       # 5. Build Next.js Site
       # ============================================
+      # Cache Next.js build output for faster rebuilds
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+            out/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx', '!**/node_modules/**') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nextjs-
+
       - name: Install website dependencies
         run: |
-          # Remove lockfile to force fresh resolution with new .npmrc
-          echo "Removing pnpm-lock.yaml to force fresh package resolution..."
-          rm -f pnpm-lock.yaml
-
-          # Verify we're in the right directory and .npmrc exists
-          echo "=== Current directory ==="
-          pwd
-          ls -la .npmrc* || echo "No .npmrc files found"
-          echo "======================="
-
-          # Show .npmrc contents RIGHT BEFORE INSTALL
-          echo "=== .npmrc contents RIGHT BEFORE pnpm install ==="
-          cat .npmrc
-          echo "=== END .npmrc contents ==="
-
-          # Verify pnpm can see the .npmrc config
-          echo "=== pnpm config list ==="
-          pnpm config list
-          echo "======================="
-
-          # Install without lockfile
-          pnpm install --no-frozen-lockfile
+          # Note: pnpm cache is already handled by setup-node cache: 'pnpm'
+          # This uses the pnpm-lock.yaml from the repository
+          echo "Installing website dependencies..."
+          pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build Next.js site
         run: pnpm run build
@@ -190,6 +215,8 @@ jobs:
       - name: Upload to GCS
         run: |
           echo "Uploading static site to gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/"
+          # -m: parallel uploads, -r: recursive, -d: delete removed files
+          # rsync only uploads changed files (incremental upload)
           gsutil -m rsync -r -d out/ gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/
 
       - name: Set Cache-Control headers
