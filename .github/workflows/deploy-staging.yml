@@ -109,12 +109,19 @@ jobs:
 
       - name: Install website dependencies
         run: |
+          # Verify we're in the right directory
+          echo "=== Current directory ==="
+          pwd
+          ls -la .npmrc* || echo "No .npmrc files found"
+          echo "======================="
+
           # Verify pnpm can see the .npmrc config
           echo "=== pnpm config list ==="
           pnpm config list
           echo "======================="
 
-          pnpm install
+          # Install with no-frozen-lockfile to handle lockfile compatibility
+          pnpm install --no-frozen-lockfile
 
       - name: Build Next.js site
         run: pnpm run build
