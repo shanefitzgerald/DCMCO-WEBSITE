@@ -150,6 +150,11 @@ This project is automatically deployed to Firebase Hosting via GitHub Actions.
 
 ### Automated Deployments
 
+**Staging Deployment:**
+- Automatically deploys to Firebase Hosting when code is pushed to `main` branch
+- Live at: https://dcmco-staging.web.app/
+- Includes automatic cache invalidation and CDN distribution
+
 **Production Deployment:**
 - Automatically deploys to Firebase Hosting when code is pushed to `main` branch
 - Live at: https://dcmco-prod-2026.web.app
