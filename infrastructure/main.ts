@@ -1,98 +1,81 @@
-import { Construct } from "constructs";
-import { App, TerraformStack, TerraformOutput } from "cdktf";
-import { GoogleProvider } from "@cdktf/provider-google/lib/provider";
-import { StorageBucket } from "@cdktf/provider-google/lib/storage-bucket";
-import { StorageBucketIamBinding } from "@cdktf/provider-google/lib/storage-bucket-iam-binding";
+import { App } from "cdktf";
 import * as dotenv from "dotenv";
+import { StorageStack, StorageStackConfig } from "./stacks";
 
-// Load environment variables
+/**
+ * DCMCO Website Infrastructure
+ *
+ * This is the main entry point for the CDKTF infrastructure.
+ * It loads environment configuration and instantiates all necessary stacks.
+ *
+ * Stack Structure:
+ * - StorageStack: GCS bucket for static website hosting
+ * - CdnStack: (Future) Cloud CDN and Load Balancer configuration
+ * - FunctionsStack: (Future) Cloud Functions for serverless features
+ *
+ * Environment Configuration:
+ * Configuration is loaded from the .env file in this directory.
+ * See .env.example for available configuration options.
+ */
+
+// Load environment variables from .env file
 dotenv.config();
 
-interface WebsiteStackConfig {
-  projectId: string;
-  region: string;
-  bucketName: string;
-  bucketLocation: string;
-  environment: string;
+/**
+ * Get configuration from environment variables with fallbacks
+ */
+function getConfig(): StorageStackConfig {
+  return {
+    // GCP Project Configuration
+    projectId: process.env.GCP_PROJECT_ID || "dcmco-prod-2026",
+    region: process.env.GCP_REGION || "australia-southeast1",
+    zone: process.env.GCP_ZONE,
+
+    // Environment
+    environment: process.env.ENVIRONMENT || "staging",
+
+    // Storage Configuration
+    bucketName: process.env.GCS_BUCKET_NAME || "dcmco-website-staging",
+    bucketLocation: process.env.GCS_BUCKET_LOCATION || "AUSTRALIA-SOUTHEAST1",
+
+    // Optional: Custom domain (when available)
+    domainName: process.env.DOMAIN_NAME,
+  };
 }
 
-class WebsiteStack extends TerraformStack {
-  constructor(scope: Construct, id: string, config: WebsiteStackConfig) {
-    super(scope, id);
-
-    // Configure GCP Provider
-    new GoogleProvider(this, "google", {
-      project: config.projectId,
-      region: config.region,
-    });
-
-    // Create GCS bucket for static website hosting
-    const bucket = new StorageBucket(this, "website-bucket", {
-      name: config.bucketName,
-      location: config.bucketLocation,
-      storageClass: "STANDARD",
-      uniformBucketLevelAccess: true,
-
-      website: {
-        mainPageSuffix: "index.html",
-        notFoundPage: "404.html",
-      },
-
-      cors: [
-        {
-          origin: ["*"],
-          method: ["GET", "HEAD"],
-          responseHeader: ["*"],
-          maxAgeSeconds: 3600,
-        },
-      ],
-
-      labels: {
-        environment: config.environment,
-        managed_by: "cdktf",
-        project: "dcmco-website",
-      },
-    });
-
-    // Make bucket publicly readable
-    new StorageBucketIamBinding(this, "public-read", {
-      bucket: bucket.name,
-      role: "roles/storage.objectViewer",
-      members: ["allUsers"],
-    });
-
-    // Outputs
-    new TerraformOutput(this, "bucket-name", {
-      value: bucket.name,
-      description: "The name of the GCS bucket",
-    });
-
-    new TerraformOutput(this, "bucket-url", {
-      value: bucket.url,
-      description: "The base URL of the bucket",
-    });
-
-    new TerraformOutput(this, "website-url", {
-      value: `https://storage.googleapis.com/${bucket.name}/index.html`,
-      description: "The URL to access the website",
-    });
-  }
-}
-
-// Initialize the app
+/**
+ * Initialize the CDKTF App
+ */
 const app = new App();
 
-// Get configuration from environment variables
-const config: WebsiteStackConfig = {
-  projectId: process.env.GCP_PROJECT_ID || "dcmco-prod-2026",
-  region: process.env.GCP_REGION || "australia-southeast1",
-  bucketName: process.env.GCS_BUCKET_NAME || "dcmco-website-prod",
-  bucketLocation: process.env.GCS_BUCKET_LOCATION || "AUSTRALIA-SOUTHEAST1",
-  environment: process.env.ENVIRONMENT || "production",
-};
+/**
+ * Load configuration
+ */
+const config = getConfig();
 
-// Create the stack
-new WebsiteStack(app, "dcmco-website", config);
+/**
+ * Create the Storage Stack
+ * Manages the GCS bucket for static website hosting with public access
+ */
+new StorageStack(app, "dcmco-website-storage", config);
 
-// Synthesize the stack
+/**
+ * Future Stacks (uncomment when ready to implement):
+ *
+ * // CDN Stack - Cloud CDN with Load Balancer
+ * new CdnStack(app, "dcmco-website-cdn", {
+ *   ...config,
+ *   bucketName: storageStack.bucket.name,
+ * });
+ *
+ * // Functions Stack - Serverless functions for dynamic features
+ * new FunctionsStack(app, "dcmco-website-functions", {
+ *   ...config,
+ *   bucketName: storageStack.bucket.name,
+ * });
+ */
+
+/**
+ * Synthesize all stacks to Terraform configuration
+ */
 app.synth();
