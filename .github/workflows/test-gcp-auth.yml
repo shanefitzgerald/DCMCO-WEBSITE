@@ -1,3 +1,5 @@
+name: Test GCP Authentication
+
 on:
   workflow_dispatch:
 
