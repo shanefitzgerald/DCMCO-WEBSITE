@@ -93,14 +93,12 @@ jobs:
       # 6. Deploy to Firebase Hosting
       # ============================================
       - name: Deploy to Firebase Hosting (Staging)
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: dcmco-prod-2026
-          target: staging
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-service-account.json
+          npx firebase-tools@latest deploy --only hosting:staging --project dcmco-prod-2026 --non-interactive
         env:
-          FIREBASE_CLI_EXPERIMENTS: webframeworks
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       # ============================================
       # 7. Deployment Summary
