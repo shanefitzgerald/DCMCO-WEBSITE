@@ -52,6 +52,24 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
+      # Cache infrastructure node_modules separately
+      - name: Cache infrastructure dependencies
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/node_modules
+          key: ${{ runner.os }}-infra-${{ hashFiles('infrastructure/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-infra-
+
+      # Cache CDKTF provider bindings (significant time saver)
+      - name: Cache CDKTF provider bindings
+        uses: actions/cache@v4
+        with:
+          path: infrastructure/imports
+          key: ${{ runner.os }}-cdktf-imports-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-cdktf-imports-
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -78,11 +96,24 @@ jobs:
 
       - name: Install infrastructure dependencies
         working-directory: ./infrastructure
-        run: pnpm install
+        run: |
+          if [ -d "node_modules" ] && [ -n "$(ls -A node_modules 2>/dev/null)" ]; then
+            echo "✓ Infrastructure dependencies restored from cache"
+            pnpm install --prefer-offline --frozen-lockfile
+          else
+            echo "Installing infrastructure dependencies..."
+            pnpm install --frozen-lockfile
+          fi
 
       - name: Generate CDKTF provider bindings
         working-directory: ./infrastructure
-        run: pnpm run get
+        run: |
+          if [ -d "imports" ] && [ -n "$(ls -A imports 2>/dev/null)" ]; then
+            echo "✓ CDKTF provider bindings restored from cache"
+          else
+            echo "Generating CDKTF provider bindings..."
+            pnpm run get
+          fi
 
       - name: Create infrastructure .env file
         working-directory: ./infrastructure
@@ -132,6 +163,18 @@ jobs:
       # ============================================
       # 4. Build Next.js Site
       # ============================================
+      # Cache Next.js build output
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+            out/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx', '!**/node_modules/**') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nextjs-
+
       - name: Configure npm authentication for Artifact Registry
         run: |
           # Generate auth token using gcloud
@@ -150,7 +193,10 @@ jobs:
           echo "======================="
 
       - name: Install website dependencies
-        run: pnpm install
+        run: |
+          # Note: pnpm cache is already handled by setup-node cache: 'pnpm'
+          echo "Installing website dependencies..."
+          pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build Next.js site
         run: pnpm run build

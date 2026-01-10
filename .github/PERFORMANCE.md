@@ -66,21 +66,15 @@ This document explains the performance optimizations implemented in the deployme
 
 ---
 
-#### CDKTF CLI Global Cache (✅ Implemented)
-```yaml
-- name: Cache CDKTF CLI
-  uses: actions/cache@v4
-  with:
-    path: ~/.local/share/pnpm/global
-    key: ${{ runner.os }}-cdktf-cli-${{ hashFiles('infrastructure/package.json') }}
-```
+#### CDKTF CLI Global Cache (❌ Not Implemented)
 
-**Benefits:**
-- Avoids reinstalling CDKTF CLI globally
-- Persists between workflow runs
-- Only invalidates when infrastructure package.json changes
+**Why not cached:**
+- pnpm's global installation path varies and is managed by pnpm-action-setup
+- Only saves ~3 seconds
+- Causes confusing "Path Validation Error" warnings
+- Other caches provide much larger performance gains
 
-**Time Saved**: 20-30 seconds per run
+**Decision**: Install CDKTF CLI fresh each run (~3 seconds)
 
 ---
 
