@@ -55,6 +55,22 @@ jobs:
       - name: Setup Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure npm authentication for Artifact Registry
+        run: |
+          # Copy .npmrc template
+          cp .npmrc.example .npmrc
+
+          # Generate auth token using gcloud
+          TOKEN=$(gcloud auth print-access-token)
+
+          # Add authentication token to .npmrc
+          echo "//australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}" >> .npmrc
+
+          # Verify .npmrc configuration
+          echo "=== .npmrc contents ==="
+          cat .npmrc
+          echo "======================="
+
       # ============================================
       # 3. Deploy Infrastructure with CDKTF
       # ============================================
