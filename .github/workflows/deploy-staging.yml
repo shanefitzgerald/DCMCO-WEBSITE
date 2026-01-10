@@ -494,7 +494,7 @@ ${{ github.event.head_commit.message }}
                     },
                     {
                       "type": "mrkdwn",
-                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|`${{ github.sha }}`.substring(0,7)>"
+                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|$(echo ${{ github.sha }} | cut -c1-7)>"
                     },
                     {
                       "type": "mrkdwn",
