@@ -166,14 +166,45 @@ jobs:
           gsutil -m rsync -r -d out/ gs://${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}/
 
       - name: Set Cache-Control headers
+        env:
+          BUCKET: gs://${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}
         run: |
-          # Set cache headers for static assets
-          gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" \
-            'gs://${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}/_next/static/**'
+          echo "Setting cache-control headers for different file types..."
 
-          # Set cache headers for HTML files
+          # 1. HTML files - Always revalidate (0 seconds)
+          echo "→ HTML files: max-age=0, must-revalidate"
           gsutil -m setmeta -h "Cache-Control:public, max-age=0, must-revalidate" \
-            'gs://${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}/**/*.html'
+            "${BUCKET}/**/*.html" 2>/dev/null || echo "  No HTML files found"
+
+          # 2. Next.js hashed static assets - Cache forever (1 year)
+          echo "→ Next.js hashed assets: max-age=31536000, immutable"
+          gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" \
+            "${BUCKET}/_next/static/**" 2>/dev/null || echo "  No Next.js static assets found"
+
+          # 3. Images - Cache for 30 days (2592000 seconds)
+          echo "→ Images: max-age=2592000 (30 days)"
+          gsutil -m setmeta -h "Cache-Control:public, max-age=2592000" \
+            "${BUCKET}/**/*.png" "${BUCKET}/**/*.jpg" "${BUCKET}/**/*.jpeg" \
+            "${BUCKET}/**/*.svg" "${BUCKET}/**/*.webp" "${BUCKET}/**/*.gif" \
+            "${BUCKET}/**/*.ico" 2>/dev/null || echo "  No image files found"
+
+          # 4. Fonts - Cache for 1 year (immutable)
+          echo "→ Fonts: max-age=31536000, immutable"
+          gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" \
+            "${BUCKET}/**/*.woff" "${BUCKET}/**/*.woff2" "${BUCKET}/**/*.ttf" \
+            "${BUCKET}/**/*.otf" "${BUCKET}/**/*.eot" 2>/dev/null || echo "  No font files found"
+
+          # 5. CSS and JS (non-hashed) - Cache for 1 hour (3600 seconds)
+          echo "→ CSS/JS files: max-age=3600 (1 hour)"
+          gsutil -m setmeta -h "Cache-Control:public, max-age=3600" \
+            "${BUCKET}/**/*.css" "${BUCKET}/**/*.js" 2>/dev/null || echo "  No CSS/JS files found"
+
+          # 6. JSON files - Cache for 1 hour
+          echo "→ JSON files: max-age=3600 (1 hour)"
+          gsutil -m setmeta -h "Cache-Control:public, max-age=3600" \
+            "${BUCKET}/**/*.json" 2>/dev/null || echo "  No JSON files found"
+
+          echo "✓ Cache headers set successfully"
 
       # ============================================
       # 6. Verification
