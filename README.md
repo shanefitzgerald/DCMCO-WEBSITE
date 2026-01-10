@@ -158,6 +158,27 @@ The built files in `/out` can be uploaded to a GCS bucket configured for static 
 
 **Note**: Since this is a static export, API routes and server-side features are not available. All pages are pre-rendered at build time.
 
+### Cache Control Strategy
+
+The deployment workflow automatically sets optimized cache-control headers for different file types:
+
+| File Type | Cache Strategy | Max Age | Rationale |
+|-----------|---------------|---------|-----------|
+| **HTML files** (`*.html`) | `max-age=0, must-revalidate` | 0 seconds | Always check for updates to ensure users get the latest content |
+| **Next.js hashed assets** (`_next/static/**`) | `max-age=31536000, immutable` | 1 year | Safe to cache forever - filename includes content hash |
+| **Images** (`*.png, *.jpg, *.svg, etc.`) | `max-age=2592000` | 30 days | Good balance between caching and freshness |
+| **Fonts** (`*.woff, *.woff2, etc.`) | `max-age=31536000, immutable` | 1 year | Fonts rarely change, safe to cache long-term |
+| **CSS/JS** (non-hashed) | `max-age=3600` | 1 hour | Short cache for non-hashed assets |
+| **JSON files** (`*.json`) | `max-age=3600` | 1 hour | Data files that may change |
+
+**Benefits:**
+- ✅ Faster page loads for returning visitors
+- ✅ Reduced GCS egress costs
+- ✅ Proper cache invalidation for content updates
+- ✅ Optimized for Next.js build patterns
+
+The cache headers are applied automatically during the GitHub Actions deployment workflow using `gsutil -m` for parallel operations.
+
 ## Design System
 
 This project uses the `@dcmco/design-system` component library. Import components as needed:
