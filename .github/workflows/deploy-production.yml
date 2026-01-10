@@ -112,11 +112,8 @@ jobs:
           # Copy .npmrc template
           cp .npmrc.example .npmrc
 
-          # Generate auth token using gcloud
-          TOKEN=$(gcloud auth print-access-token)
-
-          # Add authentication token to .npmrc
-          echo "//australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}" >> .npmrc
+          # Use google-artifactregistry-auth to configure authentication
+          npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
 
           # Verify .npmrc configuration
           cat .npmrc
