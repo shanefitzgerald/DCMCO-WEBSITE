@@ -1,5 +1,20 @@
 {
   "projects": {
-    "default": "dcmco-prod-2026"
-  }
+    "default": "dcmco-prod-2026",
+    "production": "dcmco-prod-2026",
+    "staging": "dcmco-prod-2026"
+  },
+  "targets": {
+    "dcmco-prod-2026": {
+      "hosting": {
+        "production": [
+          "dcmco-prod-2026"
+        ],
+        "staging": [
+          "dcmco-staging"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

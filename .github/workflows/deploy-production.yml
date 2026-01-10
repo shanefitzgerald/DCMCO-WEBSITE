@@ -1,0 +1,191 @@
+name: Deploy to Production (Firebase Hosting)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Confirmation check for manual deployments
+  validate:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "❌ Confirmation failed. You must type 'deploy' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation validated"
+
+  deploy:
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      # ============================================
+      # 1. Checkout and Setup
+      # ============================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      # ============================================
+      # 2. Authenticate to GCP for npm packages
+      # ============================================
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure npm authentication for Artifact Registry
+        run: |
+          # Generate auth token using gcloud
+          TOKEN=$(gcloud auth print-access-token)
+
+          # Create .npmrc with scope configuration and auth token
+          cat > .npmrc << EOF
+          @dcmco:registry=https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/
+          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:always-auth=true
+          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}
+          EOF
+
+          echo "✓ Configured npm authentication for GCP Artifact Registry"
+
+      # ============================================
+      # 3. Install Dependencies
+      # ============================================
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      # ============================================
+      # 4. Cache Next.js Build
+      # ============================================
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      # ============================================
+      # 5. Build Next.js Site
+      # ============================================
+      - name: Build Next.js site
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      # ============================================
+      # 6. Deploy to Firebase Hosting (Production)
+      # ============================================
+      - name: Deploy to Firebase Hosting (Production)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: dcmco-prod-2026
+          target: production
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      # ============================================
+      # 7. Deployment Summary
+      # ============================================
+      - name: Deployment Summary
+        if: always()
+        run: |
+          # Build deployment summary
+          echo "## 🚀 Firebase Hosting Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Deployment Status
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "### ✅ Status: Successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Status: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Environment Details
+          echo "### 📦 Environment Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | **🔴 PRODUCTION** |" >> $GITHUB_STEP_SUMMARY
+          echo "| Firebase Project | \`dcmco-prod-2026\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | \`production\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Site | \`dcmco-prod-2026\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Deployment Metrics
+          echo "### 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployed At | \`$(date -u +"%Y-%m-%d %H:%M:%S UTC")\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | [\`${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+
+          # Add release info if this is a release deployment
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "| Release | ${{ github.event.release.tag_name }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Links Section
+          echo "### 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 [**Production Website**](https://dcmco-prod-2026.web.app)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 [Firebase Console](https://console.firebase.google.com/project/dcmco-prod-2026/hosting)" >> $GITHUB_STEP_SUMMARY
+          echo "- 📝 [Commit Details](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Performance Info
+          echo "### ⚡ Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- Firebase Hosting with global CDN" >> $GITHUB_STEP_SUMMARY
+          echo "- Automatic SSL certificate" >> $GITHUB_STEP_SUMMARY
+          echo "- Optimized cache headers applied" >> $GITHUB_STEP_SUMMARY
+          echo "- Instant rollback available via Firebase CLI" >> $GITHUB_STEP_SUMMARY
+
+          # Rollback Instructions
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔙 Rollback Instructions" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# View recent deployments" >> $GITHUB_STEP_SUMMARY
+          echo "firebase hosting:releases:list --project dcmco-prod-2026" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Rollback to previous version" >> $GITHUB_STEP_SUMMARY
+          echo "firebase hosting:rollback --project dcmco-prod-2026" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
