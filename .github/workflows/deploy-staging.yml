@@ -121,6 +121,31 @@ jobs:
         working-directory: ./infrastructure
         run: pnpm run synth
 
+      - name: Import existing bucket if needed
+        working-directory: ./infrastructure
+        run: |
+          # Check if bucket exists
+          if gcloud storage buckets describe "gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}" &>/dev/null; then
+            echo "Bucket exists, checking if it's in state..."
+
+            # Initialize Terraform backend
+            cd cdktf.out/stacks/dcmco-website-storage
+            terraform init
+
+            # Check if bucket is already in state
+            if ! terraform state list | grep -q "google_storage_bucket.website-bucket"; then
+              echo "Importing existing bucket into Terraform state..."
+              terraform import google_storage_bucket.website-bucket "${{ secrets.GCS_BUCKET_NAME_STAGING }}"
+              echo "✓ Bucket imported successfully"
+            else
+              echo "✓ Bucket already in state"
+            fi
+
+            cd ../../..
+          else
+            echo "Bucket doesn't exist yet, will be created by deploy"
+          fi
+
       - name: CDKTF Deploy
         working-directory: ./infrastructure
         run: cdktf deploy --auto-approve
