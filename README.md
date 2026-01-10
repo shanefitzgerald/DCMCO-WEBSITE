@@ -1,7 +1,6 @@
 # DCMCO Website
 
-[![Deploy to Staging](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-staging.yml/badge.svg)](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-staging.yml)
-[![Deploy to Production](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml)
+[![Deploy to Firebase Hosting](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-firebase-staging.yml/badge.svg)](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-firebase-staging.yml)
 
 The official marketing website for DCM CO, a leading AI consultancy specializing in the construction industry.
 
@@ -10,7 +9,7 @@ The official marketing website for DCM CO, a leading AI consultancy specializing
 - **Framework**: [Next.js 14](https://nextjs.org/) (Pages Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [@dcmco/design-system](https://github.com/dcmco/design-system) (Stitches-based)
-- **Output**: Static Export (configured for GCS hosting)
+- **Hosting**: Firebase Hosting (with automatic SSL and global CDN)
 - **Code Quality**: ESLint + Prettier
 - **Package Manager**: pnpm
 
@@ -140,145 +139,93 @@ Next.js uses file-based routing. To add a new page:
 
 ## Deployment
 
-This project is configured for static export to Google Cloud Storage (GCS) with automated deployments via GitHub Actions.
+This project is automatically deployed to Firebase Hosting via GitHub Actions.
 
 ### Quick Links
 
-- 📖 **[Full Deployment Guide](docs/DEPLOYMENT.md)** - Comprehensive procedures, rollback steps, and troubleshooting
-- 🔄 [Staging Deployments](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-staging.yml) - View staging deployment history
-- 🚀 [Production Deployments](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml) - View production deployment history
+- 🌐 **[Live Website](https://dcmco-prod-2026.web.app)** - Production deployment
+- 📖 **[Firebase Hosting Guide](docs/FIREBASE_HOSTING.md)** - Complete configuration and cache strategy
+- 🔄 **[GitHub Actions Setup](docs/FIREBASE_GITHUB_ACTIONS.md)** - Deployment workflows and setup
+- 📊 [Deployment History](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-firebase-staging.yml) - View recent deployments
 
 ### Automated Deployments
 
-Deployments are automatically triggered when code is pushed to the repository:
+**Production Deployment:**
+- Automatically deploys to Firebase Hosting when code is pushed to `main` branch
+- Live at: https://dcmco-prod-2026.web.app
+- Includes automatic cache invalidation and CDN distribution
 
-- **Staging**: Deploys automatically on push to `main` branch
-- **Production**: Requires manual approval via GitHub Actions UI
-
-**To deploy to production:**
-1. Go to [Actions](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml)
-2. Click "Run workflow"
-3. Enter `deploy` as confirmation
-4. Click "Run workflow" button
+**Pull Request Previews:**
+- Preview deployments are automatically created for each Pull Request
+- Unique preview URL posted as PR comment
+- Preview expires after 7 days
+- No impact on production
 
 ### Manual Build Process
 
 ```bash
 # Build the static site locally
 pnpm build
+
+# Test locally with Firebase emulator
+firebase serve
+
+# Deploy manually (requires Firebase authentication)
+firebase deploy --only hosting
 ```
 
-This generates static HTML files in the `/out` directory, which can be deployed to:
-- Google Cloud Storage (recommended)
-- AWS S3
-- GitHub Pages
-- Any static hosting provider
-
-### Deployment to GCS
-
-The built files in `/out` can be uploaded to a GCS bucket configured for static website hosting.
+This generates static HTML files in the `/out` directory.
 
 **Note**: Since this is a static export, API routes and server-side features are not available. All pages are pre-rendered at build time.
 
-### Cache Control Strategy
+### Firebase Hosting Benefits
 
-The deployment workflow automatically sets optimized cache-control headers for different file types:
+Firebase Hosting provides enterprise-grade hosting with built-in features:
+
+- ✅ **Automatic SSL**: Free HTTPS certificates with auto-renewal
+- ✅ **Global CDN**: Content delivered from edge locations worldwide
+- ✅ **Fast deploys**: Optimized asset upload with smart caching
+- ✅ **Preview channels**: Test changes before going live
+- ✅ **Easy rollbacks**: One-command rollback to any previous version
+- ✅ **Custom domains**: Support for custom domain configuration
+
+### Cache Strategy
+
+Cache headers are configured in `firebase.json`:
 
 | File Type | Cache Strategy | Max Age | Rationale |
 |-----------|---------------|---------|-----------|
-| **HTML files** (`*.html`) | `max-age=0, must-revalidate` | 0 seconds | Always check for updates to ensure users get the latest content |
-| **Next.js hashed assets** (`_next/static/**`) | `max-age=31536000, immutable` | 1 year | Safe to cache forever - filename includes content hash |
-| **Images** (`*.png, *.jpg, *.svg, etc.`) | `max-age=2592000` | 30 days | Good balance between caching and freshness |
-| **Fonts** (`*.woff, *.woff2, etc.`) | `max-age=31536000, immutable` | 1 year | Fonts rarely change, safe to cache long-term |
-| **CSS/JS** (non-hashed) | `max-age=3600` | 1 hour | Short cache for non-hashed assets |
-| **JSON files** (`*.json`) | `max-age=3600` | 1 hour | Data files that may change |
+| **HTML files** | `max-age=0, must-revalidate` | 0 seconds | Always fresh content |
+| **Next.js hashed assets** (`_next/static/**`) | `max-age=31536000, immutable` | 1 year | Content-hashed filenames |
+| **Images** | `max-age=2592000` | 30 days | Balance caching and updates |
+| **Fonts** | `max-age=31536000, immutable` | 1 year | Fonts rarely change |
+| **Other JS/CSS** | `max-age=3600` | 1 hour | Non-hashed assets |
 
-**Benefits:**
-- ✅ Faster page loads for returning visitors
-- ✅ Reduced GCS egress costs
-- ✅ Proper cache invalidation for content updates
-- ✅ Optimized for Next.js build patterns
+For detailed configuration, see [docs/FIREBASE_HOSTING.md](docs/FIREBASE_HOSTING.md).
 
-The cache headers are applied automatically during the GitHub Actions deployment workflow using `gsutil -m` for parallel operations.
+### Rollback Procedure
 
-### CDN Cache Invalidation
+To rollback a deployment:
 
-If you're using Google Cloud CDN, the deployment workflow can automatically invalidate the CDN cache after each deployment.
-
-**To enable CDN cache invalidation:**
-
-1. Go to your repository settings: `Settings → Secrets and variables → Actions → Variables`
-2. Click "New repository variable"
-3. Add the following variable:
-   - **Name:** `CDN_URL_MAP`
-   - **Value:** Your CDN URL map name (e.g., `dcmco-website-cdn`)
-
-**How it works:**
-- After deployment, the workflow checks if `CDN_URL_MAP` is configured
-- If configured, it invalidates all paths (`/*`) in the CDN
-- Runs asynchronously using `gcloud compute url-maps invalidate-cdn-cache`
-- Does not block deployment if invalidation fails
-- Shows clear status messages in the deployment logs
-
-**Example:**
 ```bash
-# Find your URL map name
-gcloud compute url-maps list
+# View recent deployments
+firebase hosting:releases:list
 
-# Set the variable in GitHub
-# Settings → Actions → Variables → New variable
-# Name: CDN_URL_MAP
-# Value: your-url-map-name
+# Rollback to previous version
+firebase hosting:rollback
+
+# Or specify a specific version
+firebase hosting:rollback <release-id>
 ```
 
-**Note:** If CDN is not configured, the step is automatically skipped with no impact on deployment.
+### Deployment Summary
 
-### Workflow Performance
+Every deployment generates a detailed summary including:
 
-The deployment workflows are optimized for speed using aggressive caching strategies:
-
-- **Dependencies**: pnpm store cache + infrastructure node_modules cache
-- **CDKTF**: CLI global cache + provider bindings cache
-- **Build**: Next.js compilation cache
-- **Uploads**: Incremental rsync (only changed files)
-
-**Expected Performance:**
-- Cold cache (first run): ~4-5 minutes
-- Warm cache (typical): ~2-3 minutes
-- Code changes only: ~3-4 minutes
-
-For detailed performance optimization documentation, see [`.github/PERFORMANCE.md`](.github/PERFORMANCE.md).
-
-### Deployment Notifications
-
-The workflows include comprehensive notification features to keep you informed about deployment status.
-
-#### GitHub Actions Status Badges
-
-Status badges are displayed at the top of this README, showing the current deployment status for staging and production environments. Click on a badge to view the workflow runs.
-
-#### Enhanced Deployment Summary
-
-Every deployment generates a detailed summary in the GitHub Actions workflow run, including:
-
-- **Status**: Success or failure indicator
-- **Environment Details**: Project, bucket, region, workflow run number
-- **Deployment Metrics**: Total files deployed, total size, deployment timestamp
-- **Quick Links**: Direct links to website, GCS bucket, commit details, and workflow run
-- **CDN Status**: Cache invalidation status (if configured)
-- **Performance Info**: Deployment strategy and caching summary
-
-#### Automatic Issue Creation on Failure
-
-When a deployment fails, an issue is automatically created with:
-
-- **Detailed failure report** including environment, commit info, and triggered by
-- **Quick links** to workflow logs, commit details, and artifacts
-- **Next steps** for troubleshooting
-- **Automatic labels**: `deployment-failure`, `staging`/`production`, `automated`, `bug`
-- **Commit comment** alerting about the failure
-
-Production failures are marked as `critical` for immediate attention.
+- ✅ Deployment status and metrics
+- 📦 Environment details (project, channel)
+- 🔗 Quick links (live site, Firebase console, commit)
+- ⚡ Performance info (CDN, SSL, caching)
 
 ## Design System
 
