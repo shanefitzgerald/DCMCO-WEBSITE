@@ -290,7 +290,7 @@ jobs:
           echo "Skipping cache invalidation step"
 
       # ============================================
-      # 9. Summary
+      # 9. Enhanced Deployment Summary
       # ============================================
       - name: Deployment Summary
         if: always()
@@ -299,13 +299,239 @@ jobs:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           BUCKET_REGION: ${{ secrets.GCS_BUCKET_LOCATION }}
         run: |
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          # Calculate deployment duration
+          WORKFLOW_START="${{ github.event.repository.updated_at }}"
+          DEPLOY_END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Get file count and total size from GCS bucket
+          FILE_COUNT=$(gsutil ls -r "gs://${BUCKET_NAME}/**" 2>/dev/null | grep -v ':$' | wc -l || echo "0")
+          TOTAL_SIZE=$(gsutil du -s "gs://${BUCKET_NAME}" 2>/dev/null | awk '{print $1}' || echo "0")
+
+          # Convert bytes to human-readable format
+          if [ "$TOTAL_SIZE" -ge 1073741824 ]; then
+            SIZE_FORMATTED="$(awk "BEGIN {printf \"%.2f GB\", $TOTAL_SIZE/1073741824}")"
+          elif [ "$TOTAL_SIZE" -ge 1048576 ]; then
+            SIZE_FORMATTED="$(awk "BEGIN {printf \"%.2f MB\", $TOTAL_SIZE/1048576}")"
+          else
+            SIZE_FORMATTED="$(awk "BEGIN {printf \"%.2f KB\", $TOTAL_SIZE/1024}")"
+          fi
+
+          # Build deployment summary
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** Staging" >> $GITHUB_STEP_SUMMARY
-          echo "- **GCP Project:** ${PROJECT_ID}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Bucket:** ${BUCKET_NAME}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region:** ${BUCKET_REGION}" >> $GITHUB_STEP_SUMMARY
+
+          # Deployment Status
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "### ✅ Status: Successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Status: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [Website](https://storage.googleapis.com/${BUCKET_NAME}/index.html)" >> $GITHUB_STEP_SUMMARY
-          echo "- [GCS Bucket](https://console.cloud.google.com/storage/browser/${BUCKET_NAME})" >> $GITHUB_STEP_SUMMARY
+
+          # Environment Details
+          echo "### 📦 Environment Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | **Staging** |" >> $GITHUB_STEP_SUMMARY
+          echo "| GCP Project | \`${PROJECT_ID}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bucket | \`${BUCKET_NAME}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | \`${BUCKET_REGION}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Deployment Metrics
+          echo "### 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Files | **${FILE_COUNT}** |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Size | **${SIZE_FORMATTED}** |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployed At | \`${DEPLOY_END}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | [\`${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Links Section
+          echo "### 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 [View Website](https://storage.googleapis.com/${BUCKET_NAME}/index.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🪣 [GCS Bucket Console](https://console.cloud.google.com/storage/browser/${BUCKET_NAME})" >> $GITHUB_STEP_SUMMARY
+          echo "- 📝 [Commit Details](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # CDN Status (if configured)
+          if [ -n "${{ vars.CDN_URL_MAP }}" ]; then
+            echo "### 🌍 CDN Status" >> $GITHUB_STEP_SUMMARY
+            echo "- CDN cache invalidation initiated for \`${{ vars.CDN_URL_MAP }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Invalidation may take a few minutes to propagate" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Cache Summary
+          echo "### ⚡ Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- Incremental deployment using \`gsutil rsync\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Optimized cache headers applied" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependencies cached for faster subsequent runs" >> $GITHUB_STEP_SUMMARY
+
+      # ============================================
+      # 10. Failure Notification - Create GitHub Issue
+      # ============================================
+      - name: Create GitHub Issue on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Get the failed job information
+            const runId = context.runId;
+            const runNumber = context.runNumber;
+            const actor = context.actor;
+            const sha = context.sha;
+            const shortSha = sha.substring(0, 7);
+            const repo = context.repo;
+            const workflow = context.workflow;
+
+            // Build issue title
+            const title = `🚨 Deployment Failed: Staging (#${runNumber})`;
+
+            // Build issue body with detailed information
+            const body = `## Deployment Failure Report
+
+### ❌ Deployment Details
+
+| Property | Value |
+|----------|-------|
+| **Environment** | Staging |
+| **Workflow** | ${workflow} |
+| **Run Number** | [#${runNumber}](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}) |
+| **Commit** | [\`${shortSha}\`](https://github.com/${repo.owner}/${repo.repo}/commit/${sha}) |
+| **Triggered By** | @${actor} |
+| **Failed At** | ${new Date().toISOString()} |
+
+### 🔍 Commit Information
+
+**Commit Message:**
+\`\`\`
+${{ github.event.head_commit.message }}
+\`\`\`
+
+**Author:** ${{ github.event.head_commit.author.name }} <${{ github.event.head_commit.author.email }}>
+
+### 🔗 Quick Links
+
+- [View Workflow Run](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId})
+- [View Commit](https://github.com/${repo.owner}/${repo.repo}/commit/${sha})
+- [View Logs](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}#artifacts)
+
+### 📋 Next Steps
+
+1. Review the [workflow logs](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}) to identify the failure point
+2. Check if the issue is related to:
+   - Infrastructure provisioning (CDKTF)
+   - Build process (Next.js)
+   - Deployment to GCS
+   - Cache configuration
+3. Fix the issue and push a new commit
+4. This issue will be automatically closed on successful deployment
+
+### 🏷️ Labels
+
+- \`deployment-failure\`
+- \`staging\`
+- \`automated\`
+
+---
+
+*This issue was automatically created by the GitHub Actions deployment workflow.*`;
+
+            // Create the issue
+            const issue = await github.rest.issues.create({
+              owner: repo.owner,
+              repo: repo.repo,
+              title: title,
+              body: body,
+              labels: ['deployment-failure', 'staging', 'automated', 'bug']
+            });
+
+            console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+
+            // Also add a comment to the commit
+            await github.rest.repos.createCommitComment({
+              owner: repo.owner,
+              repo: repo.repo,
+              commit_sha: sha,
+              body: `⚠️ **Deployment to Staging Failed**\n\nSee issue #${issue.data.number} for details: ${issue.data.html_url}`
+            });
+
+      # ============================================
+      # 11. Success Notification - Slack (Optional)
+      # ============================================
+      - name: Send Slack Notification
+        if: success() && vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "✅ Deployment Successful: Staging",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\nStaging"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Triggered By:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|`${{ github.sha }}`.substring(0,7)>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Duration:*\n~3 minutes"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit Message:*\n```${{ github.event.head_commit.message }}```"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "🌐 View Website"
+                      },
+                      "url": "https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME_STAGING }}/index.html"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "📊 View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

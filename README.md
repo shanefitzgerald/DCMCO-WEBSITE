@@ -1,5 +1,8 @@
 # DCMCO Website
 
+[![Deploy to Staging](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-staging.yml/badge.svg)](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-staging.yml)
+[![Deploy to Production](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml)
+
 The official marketing website for DCM CO, a leading AI consultancy specializing in the construction industry.
 
 ## Tech Stack
@@ -226,6 +229,78 @@ The deployment workflows are optimized for speed using aggressive caching strate
 - Code changes only: ~3-4 minutes
 
 For detailed performance optimization documentation, see [`.github/PERFORMANCE.md`](.github/PERFORMANCE.md).
+
+### Deployment Notifications
+
+The workflows include comprehensive notification features to keep you informed about deployment status.
+
+#### GitHub Actions Status Badges
+
+Status badges are displayed at the top of this README, showing the current deployment status for staging and production environments. Click on a badge to view the workflow runs.
+
+#### Enhanced Deployment Summary
+
+Every deployment generates a detailed summary in the GitHub Actions workflow run, including:
+
+- **Status**: Success or failure indicator
+- **Environment Details**: Project, bucket, region, workflow run number
+- **Deployment Metrics**: Total files deployed, total size, deployment timestamp
+- **Quick Links**: Direct links to website, GCS bucket, commit details, and workflow run
+- **CDN Status**: Cache invalidation status (if configured)
+- **Performance Info**: Deployment strategy and caching summary
+
+#### Automatic Issue Creation on Failure
+
+When a deployment fails, an issue is automatically created with:
+
+- **Detailed failure report** including environment, commit info, and triggered by
+- **Quick links** to workflow logs, commit details, and artifacts
+- **Next steps** for troubleshooting
+- **Automatic labels**: `deployment-failure`, `staging`/`production`, `automated`, `bug`
+- **Commit comment** alerting about the failure
+
+Production failures are marked as `critical` for immediate attention.
+
+#### Slack Notifications (Optional)
+
+You can optionally enable Slack notifications for successful deployments.
+
+**To enable Slack notifications:**
+
+1. Create a Slack Incoming Webhook:
+   - Go to your Slack workspace settings
+   - Navigate to "Apps" → "Incoming Webhooks"
+   - Create a new webhook and copy the URL
+
+2. Add the webhook URL to GitHub:
+   - Go to: `Settings → Secrets and variables → Actions → Variables`
+   - Click "New repository variable"
+   - Add:
+     - **Name:** `SLACK_WEBHOOK_URL`
+     - **Value:** Your Slack webhook URL (e.g., `https://hooks.slack.com/services/...`)
+
+3. Slack notifications will include:
+   - Deployment success message with environment indicator
+   - Commit details and who triggered the deployment
+   - Buttons to view the live website and workflow run
+   - For production: Special formatting to highlight production deployments
+
+**Example Slack Message:**
+```
+✅ Deployment Successful: Staging
+
+Environment: Staging
+Triggered By: @username
+Commit: abc1234
+Duration: ~3 minutes
+
+Commit Message:
+feat: add new homepage section
+
+[View Website] [View Workflow]
+```
+
+**Note:** Slack notifications are completely optional. If `SLACK_WEBHOOK_URL` is not configured, the notification step is automatically skipped with no impact on deployment.
 
 ## Design System
 
