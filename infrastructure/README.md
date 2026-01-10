@@ -131,45 +131,135 @@ gcloud auth list
 
 ### Environment Variables
 
-Edit the `.env` file with your settings:
+The infrastructure uses environment variables for configuration. See [ENV_SETUP.md](./ENV_SETUP.md) for a comprehensive guide.
+
+#### Quick Setup
+
+```bash
+# 1. Copy the example file
+cp .env.example .env
+
+# 2. Edit with your values
+nano .env
+
+# 3. Verify configuration
+pnpm run verify
+```
+
+#### Required Variables
+
+- `GCP_PROJECT_ID`: Your Google Cloud project ID
+- `GCS_BUCKET_NAME`: Unique bucket name for your website
+
+#### Optional Variables (with defaults)
+
+- `GCP_REGION`: Region for resources (default: `us-central1`)
+- `ENVIRONMENT`: Environment name (default: `staging`)
+- `GCS_BUCKET_LOCATION`: Bucket location (default: `US`)
+- `GCP_ZONE`: Specific zone (optional)
+- `DOMAIN_NAME`: Custom domain (optional)
+
+#### Example Configuration
 
 ```bash
 # GCP Configuration
-GCP_PROJECT_ID=dcmco-prod-2026              # Your GCP project ID
-GCP_REGION=australia-southeast1              # Primary region
-GCP_ZONE=australia-southeast1-a              # Primary zone
-
-# GCS Bucket Configuration
-GCS_BUCKET_NAME=dcmco-website-staging        # Bucket name (must be globally unique)
-GCS_BUCKET_LOCATION=AUSTRALIA-SOUTHEAST1     # Bucket location
-
-# Domain Configuration (optional - for future CDN setup)
-# DOMAIN_NAME=dcmco.com.au                   # Uncomment when domain is ready
+GCP_PROJECT_ID=your-project-id
+GCP_REGION=australia-southeast1
+GCP_ZONE=australia-southeast1-a
 
 # Environment
-ENVIRONMENT=staging                          # staging or production
+ENVIRONMENT=staging
+
+# GCS Bucket Configuration
+GCS_BUCKET_NAME=your-project-website-staging
+GCS_BUCKET_LOCATION=AUSTRALIA-SOUTHEAST1
+
+# Optional: Domain (for production)
+# DOMAIN_NAME=example.com
 ```
 
 ### Environment Files
 
-- **`.env`**: Your actual configuration (git-ignored, never commit this)
-- **`.env.example`**: Template with documentation (committed to git)
+- **`.env`**: Your actual configuration (git-ignored, never commit)
+- **`.env.example`**: Template with placeholders and documentation
+- **`.env.staging.example`**: Pre-configured staging template
+- **`.env.production.example`**: Pre-configured production template
+- **`ENV_SETUP.md`**: Comprehensive environment variable guide
 
-### Changing Environments
+### Configuration Validation
 
-To switch between staging and production:
+The infrastructure includes automatic validation:
 
 ```bash
-# For staging
-export ENVIRONMENT=staging
-export GCS_BUCKET_NAME=dcmco-website-staging
+# Run full verification including config validation
+pnpm run verify
 
-# For production
-export ENVIRONMENT=production
-export GCS_BUCKET_NAME=dcmco-website-prod
+# The config module will:
+# ✓ Check required variables are set
+# ✓ Validate variable formats
+# ✓ Apply defaults for optional variables
+# ✓ Print configuration summary
 ```
 
-Or create separate `.env.staging` and `.env.production` files and copy as needed.
+### Switching Environments
+
+#### Method 1: Use environment-specific templates
+
+```bash
+# Copy staging template
+cp .env.staging.example .env
+# Edit with your staging values
+pnpm run deploy
+
+# Copy production template
+cp .env.production.example .env
+# Edit with your production values
+pnpm run deploy
+```
+
+#### Method 2: Maintain separate .env files
+
+```bash
+# Create environment-specific configs
+cp .env.example .env.staging
+cp .env.example .env.production
+
+# Edit each with appropriate values
+# ...
+
+# Switch environments
+cp .env.staging .env  # For staging
+cp .env.production .env  # For production
+```
+
+#### Method 3: Override via environment variables
+
+```bash
+# Temporarily override for a single command
+GCP_PROJECT_ID=other-project pnpm run synth
+```
+
+### Configuration in Code
+
+Environment variables are loaded and validated in [config.ts](infrastructure/config.ts):
+
+```typescript
+// Load configuration with validation
+import { loadEnvironmentConfig, getStorageStackConfig } from "./config";
+
+const envConfig = loadEnvironmentConfig();
+const config = getStorageStackConfig(envConfig);
+
+// Use in stacks
+new StorageStack(app, "storage", config);
+```
+
+See [ENV_SETUP.md](./ENV_SETUP.md) for detailed documentation on:
+- All available variables
+- Validation rules
+- Best practices
+- Troubleshooting
+- Adding new variables
 
 ## Available Commands
 
@@ -756,6 +846,7 @@ Required secrets in GitHub:
 - [stacks/README.md](./stacks/README.md) - Stack development guide
 - [VERIFICATION_CHECKLIST.md](./VERIFICATION_CHECKLIST.md) - Comprehensive verification checklist and Definition of Done
 - [QUICK_START.md](./QUICK_START.md) - Quick reference guide for common tasks
+- [ENV_SETUP.md](./ENV_SETUP.md) - Environment variable configuration guide
 
 ### External Resources
 

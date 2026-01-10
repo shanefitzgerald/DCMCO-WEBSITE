@@ -1,6 +1,11 @@
 import { App } from "cdktf";
-import * as dotenv from "dotenv";
-import { StorageStack, StorageStackConfig } from "./stacks";
+import { StorageStack } from "./stacks";
+import {
+  loadEnvironmentConfig,
+  getStorageStackConfig,
+  printConfigSummary,
+  ConfigurationError
+} from "./config";
 
 /**
  * DCMCO Website Infrastructure
@@ -15,33 +20,14 @@ import { StorageStack, StorageStackConfig } from "./stacks";
  *
  * Environment Configuration:
  * Configuration is loaded from the .env file in this directory.
- * See .env.example for available configuration options.
+ * See .env.example for available configuration options and setup instructions.
+ *
+ * Usage:
+ *   1. Copy .env.example to .env
+ *   2. Fill in required values
+ *   3. Run: pnpm run verify
+ *   4. Run: pnpm run synth
  */
-
-// Load environment variables from .env file
-dotenv.config();
-
-/**
- * Get configuration from environment variables with fallbacks
- */
-function getConfig(): StorageStackConfig {
-  return {
-    // GCP Project Configuration
-    projectId: process.env.GCP_PROJECT_ID || "dcmco-prod-2026",
-    region: process.env.GCP_REGION || "australia-southeast1",
-    zone: process.env.GCP_ZONE,
-
-    // Environment
-    environment: process.env.ENVIRONMENT || "staging",
-
-    // Storage Configuration
-    bucketName: process.env.GCS_BUCKET_NAME || "dcmco-website-staging",
-    bucketLocation: process.env.GCS_BUCKET_LOCATION || "AUSTRALIA-SOUTHEAST1",
-
-    // Optional: Custom domain (when available)
-    domainName: process.env.DOMAIN_NAME,
-  };
-}
 
 /**
  * Initialize the CDKTF App
@@ -49,9 +35,20 @@ function getConfig(): StorageStackConfig {
 const app = new App();
 
 /**
- * Load configuration
+ * Load and validate configuration
  */
-const config = getConfig();
+let config;
+try {
+  const envConfig = loadEnvironmentConfig();
+  printConfigSummary(envConfig);
+  config = getStorageStackConfig(envConfig);
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    console.error(`\n❌ Configuration Error:\n${error.message}\n`);
+    process.exit(1);
+  }
+  throw error;
+}
 
 /**
  * Create the Storage Stack
