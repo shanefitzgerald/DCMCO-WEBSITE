@@ -80,6 +80,10 @@ jobs:
         working-directory: ./infrastructure
         run: pnpm install
 
+      - name: Generate CDKTF provider bindings
+        working-directory: ./infrastructure
+        run: pnpm run get
+
       - name: Create infrastructure .env file
         working-directory: ./infrastructure
         run: |
