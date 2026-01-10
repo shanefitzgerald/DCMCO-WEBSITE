@@ -419,10 +419,13 @@ async function sendEmail(
   data: ContactFormData,
   config: EnvironmentConfig
 ): Promise<void> {
+  // Use verified sender email from environment or default to recipient
+  const fromEmail = process.env.FROM_EMAIL || config.emailRecipient;
+
   const msg = {
     to: config.emailRecipient,
     from: {
-      email: 'noreply@dcmco.com.au',
+      email: fromEmail,
       name: 'DCMCO Website',
     },
     replyTo: {
