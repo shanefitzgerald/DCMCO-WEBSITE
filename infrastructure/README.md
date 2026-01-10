@@ -27,7 +27,7 @@ This infrastructure uses a modular, TypeScript-based approach to manage cloud re
 - **Node.js**: v18.0.0 or higher ([Download](https://nodejs.org/))
 - **pnpm**: v8.0.0 or higher (`npm install -g pnpm`)
 - **Terraform**: v1.0.0 or higher ([Installation Guide](https://terraform.io))
-- **CDKTF CLI**: v0.20.0 or higher (`npm install -g cdktf-cli@^0.20.0`)
+- **CDKTF CLI**: v0.20.0 or higher (`pnpm install -g cdktf-cli@^0.20.0`)
 - **GCP CLI**: Authenticated with proper permissions ([Installation Guide](https://cloud.google.com/sdk/docs/install))
 
 ### GCP Requirements
@@ -62,7 +62,7 @@ gcloud config get-value project
 ### 1. Install CDKTF CLI Globally
 
 ```bash
-npm install -g cdktf-cli@^0.20.0
+pnpm install -g cdktf-cli@^0.20.0
 ```
 
 ### 2. Install Terraform
@@ -175,6 +175,30 @@ Or create separate `.env.staging` and `.env.production` files and copy as needed
 
 All commands should be run from the `infrastructure/` directory.
 
+### Verification & Testing
+
+```bash
+# Run full verification suite
+pnpm run verify
+
+# Type checking only
+pnpm run typecheck
+
+# Type checking in watch mode
+pnpm run typecheck:watch
+
+# Lint (type check + validation)
+pnpm run lint
+
+# Type check + synth
+pnpm run validate
+
+# Type check + diff
+pnpm run check
+```
+
+**Quick Start**: Run `pnpm run verify` before any deployment to check all prerequisites and validate your configuration. See [VERIFICATION_CHECKLIST.md](./VERIFICATION_CHECKLIST.md) for details.
+
 ### Development Commands
 
 ```bash
@@ -228,18 +252,22 @@ pnpm run destroy:auto
 pnpm install
 pnpm run get
 
-# 2. Build and preview
+# 2. Verify everything is configured correctly
+pnpm run verify
+
+# 3. Build and preview
 pnpm run build
 pnpm run synth
 pnpm run plan
 
-# 3. Deploy
+# 4. Deploy
 pnpm run deploy
 
-# 4. (Later) Update and redeploy
+# 5. (Later) Update and redeploy
 # ... make changes to infrastructure code ...
+pnpm run typecheck
 pnpm run build
-pnpm run plan
+pnpm run check      # type check + diff
 pnpm run deploy
 ```
 
@@ -247,30 +275,33 @@ pnpm run deploy
 
 ```
 infrastructure/
-├── main.ts                 # Main entry point - instantiates stacks
-├── stacks/                 # Modular stack definitions
-│   ├── base-stack.ts       # Abstract base class for all stacks
-│   ├── storage-stack.ts    # GCS bucket for static website hosting
-│   ├── index.ts            # Central export point for stacks
-│   └── README.md           # Stack development documentation
-├── cdktf.json              # CDKTF project configuration
-├── tsconfig.json           # TypeScript compiler configuration
-├── package.json            # Node.js dependencies and scripts
-├── .env                    # Environment variables (git-ignored)
-├── .env.example            # Environment template (committed)
-├── .gitignore              # Git ignore rules
-├── README.md               # This file
-├── ARCHITECTURE.md         # Architecture documentation
-├── STAGING.md              # Staging deployment guide
-├── setup.sh                # Automated setup script
-├── cdktf.out/              # Generated Terraform (git-ignored)
+├── main.ts                       # Main entry point - instantiates stacks
+├── stacks/                       # Modular stack definitions
+│   ├── base-stack.ts             # Abstract base class for all stacks
+│   ├── storage-stack.ts          # GCS bucket for static website hosting
+│   ├── index.ts                  # Central export point for stacks
+│   └── README.md                 # Stack development documentation
+├── cdktf.json                    # CDKTF project configuration
+├── tsconfig.json                 # TypeScript compiler configuration
+├── package.json                  # Node.js dependencies and scripts
+├── .env                          # Environment variables (git-ignored)
+├── .env.example                  # Environment template (committed)
+├── .gitignore                    # Git ignore rules
+├── README.md                     # This file
+├── ARCHITECTURE.md               # Architecture documentation
+├── STAGING.md                    # Staging deployment guide
+├── VERIFICATION_CHECKLIST.md     # Verification and testing guide
+├── QUICK_START.md                # Quick reference for common tasks
+├── verify.sh                     # Automated verification script
+├── setup.sh                      # Automated setup script
+├── cdktf.out/                    # Generated Terraform (git-ignored)
 │   └── stacks/
 │       └── dcmco-website-storage/
-│           └── cdk.tf.json # Generated Terraform JSON
-├── .terraform/             # Terraform plugins (git-ignored)
-├── .gen/                   # Generated provider bindings (git-ignored)
-├── imports/                # Provider TypeScript bindings (git-ignored)
-└── terraform.*.tfstate     # Terraform state files (git-ignored)
+│           └── cdk.tf.json       # Generated Terraform JSON
+├── .terraform/                   # Terraform plugins (git-ignored)
+├── .gen/                         # Generated provider bindings (git-ignored)
+├── imports/                      # Provider TypeScript bindings (git-ignored)
+└── terraform.*.tfstate           # Terraform state files (git-ignored)
 ```
 
 ### Key Files Explained
@@ -565,7 +596,7 @@ rm -rf *.js *.d.ts stacks/*.js stacks/*.d.ts
 pnpm run build
 
 # Check for type errors
-npx tsc --noEmit
+pnpm exec tsc --noEmit
 ```
 
 ### Permission Denied
@@ -687,7 +718,7 @@ jobs:
           terraform_version: 1.6.0
 
       - name: Install CDKTF
-        run: npm install -g cdktf-cli@^0.20.0
+        run: pnpm install -g cdktf-cli@^0.20.0
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -723,6 +754,8 @@ Required secrets in GitHub:
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Complete architecture overview
 - [STAGING.md](./STAGING.md) - Staging deployment guide
 - [stacks/README.md](./stacks/README.md) - Stack development guide
+- [VERIFICATION_CHECKLIST.md](./VERIFICATION_CHECKLIST.md) - Comprehensive verification checklist and Definition of Done
+- [QUICK_START.md](./QUICK_START.md) - Quick reference guide for common tasks
 
 ### External Resources
 
