@@ -80,7 +80,16 @@ jobs:
 
       - name: Install infrastructure dependencies
         working-directory: ./infrastructure
-        run: pnpm install
+        run: |
+          echo "=== Checking for .npmrc in infrastructure directory ==="
+          ls -la ../.npmrc || echo "No .npmrc in parent directory"
+          ls -la .npmrc || echo "No .npmrc in infrastructure directory"
+
+          echo "=== Contents of parent .npmrc ==="
+          cat ../.npmrc || echo "Cannot read parent .npmrc"
+
+          echo "=== Running pnpm install ==="
+          pnpm install
 
       - name: Generate CDKTF provider bindings
         working-directory: ./infrastructure
@@ -136,6 +145,11 @@ jobs:
           pwd
           ls -la .npmrc* || echo "No .npmrc files found"
           echo "======================="
+
+          # Show .npmrc contents RIGHT BEFORE INSTALL
+          echo "=== .npmrc contents RIGHT BEFORE pnpm install ==="
+          cat .npmrc
+          echo "=== END .npmrc contents ==="
 
           # Verify pnpm can see the .npmrc config
           echo "=== pnpm config list ==="
