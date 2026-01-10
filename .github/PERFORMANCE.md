@@ -12,11 +12,19 @@ This document explains the performance optimizations implemented in the deployme
 - **Upload**: 30-60 seconds
 
 ### After Optimization
-- **Total Runtime (cold cache)**: ~4-5 minutes
-- **Total Runtime (warm cache)**: ~2-3 minutes (40-60% faster)
-- **Dependency Installation**: 30-60 seconds (cached)
+
+**First Run (Cold Cache - Run #20875222619)**:
+- **Total Runtime**: 3m9s (~55% faster than before!)
+- **Dependency Installation**: ~1 minute (pnpm v9 compatibility fix)
+- **CDKTF Provider Generation**: ~40 seconds (first generation)
+- **Build**: ~37 seconds
+- **Upload**: Incremental rsync
+
+**Expected Warm Cache Performance** (subsequent runs):
+- **Total Runtime**: ~2-3 minutes (40-60% faster)
+- **Dependency Installation**: 10-20 seconds (cached)
 - **CDKTF Provider Generation**: 5-10 seconds (cached)
-- **Build**: 1 minute (with cache)
+- **Build**: 30-45 seconds (with cache)
 - **Upload**: 10-30 seconds (incremental)
 
 ## Implemented Optimizations
