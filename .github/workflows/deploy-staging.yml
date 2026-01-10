@@ -1,0 +1,146 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  NODE_VERSION: '20'
+  TERRAFORM_VERSION: '1.6.0'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      # ============================================
+      # 1. Checkout and Setup
+      # ============================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # ============================================
+      # 2. Authenticate to GCP
+      # ============================================
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # ============================================
+      # 3. Deploy Infrastructure with CDKTF
+      # ============================================
+      - name: Install CDKTF CLI
+        run: pnpm install -g cdktf-cli@^0.20.0
+
+      - name: Install infrastructure dependencies
+        working-directory: ./infrastructure
+        run: pnpm install
+
+      - name: Create infrastructure .env file
+        working-directory: ./infrastructure
+        run: |
+          cat > .env << EOF
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=${{ secrets.GCP_REGION }}
+          GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME_STAGING }}
+          GCS_BUCKET_LOCATION=${{ secrets.GCS_BUCKET_LOCATION }}
+          ENVIRONMENT=staging
+          EOF
+
+      - name: CDKTF Synth
+        working-directory: ./infrastructure
+        run: pnpm run synth
+
+      - name: CDKTF Deploy
+        working-directory: ./infrastructure
+        run: cdktf deploy --auto-approve
+
+      # ============================================
+      # 4. Build Next.js Site
+      # ============================================
+      - name: Install website dependencies
+        run: pnpm install
+
+      - name: Build Next.js site
+        run: pnpm run build
+        env:
+          # Add any build-time environment variables here
+          NEXT_PUBLIC_ENV: staging
+
+      # ============================================
+      # 5. Deploy to GCS
+      # ============================================
+      - name: Upload to GCS
+        run: |
+          echo "Uploading static site to gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/"
+          gsutil -m rsync -r -d out/ gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/
+
+      - name: Set Cache-Control headers
+        run: |
+          # Set cache headers for static assets
+          gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable" \
+            'gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/_next/static/**'
+
+          # Set cache headers for HTML files
+          gsutil -m setmeta -h "Cache-Control:public, max-age=0, must-revalidate" \
+            'gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/**/*.html'
+
+      # ============================================
+      # 6. Verification
+      # ============================================
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Website URL: https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME_STAGING }}/index.html"
+
+          # Test if index.html is accessible
+          curl -f -s -o /dev/null https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME_STAGING }}/index.html || \
+            (echo "❌ Website is not accessible" && exit 1)
+
+          echo "✅ Website is accessible and serving content"
+
+      # ============================================
+      # 7. Summary
+      # ============================================
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** Staging" >> $GITHUB_STEP_SUMMARY
+          echo "- **GCP Project:** ${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bucket:** ${{ secrets.GCS_BUCKET_NAME_STAGING }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${{ secrets.GCS_BUCKET_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [Website](https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME_STAGING }}/index.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [GCS Bucket](https://console.cloud.google.com/storage/browser/${{ secrets.GCS_BUCKET_NAME_STAGING }})" >> $GITHUB_STEP_SUMMARY
