@@ -155,6 +155,41 @@ curl -X GET http://localhost:8080 \
 
 ---
 
+### 9. Test Honeypot Spam Protection (Bot Detection)
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d '{
+    "name": "Spam Bot",
+    "email": "bot@spam.com",
+    "message": "This is automated spam",
+    "honeypot": "I am a bot filling this field"
+  }'
+```
+
+**Expected:** `{"success": true, "message": "Thank you for your message..."}` (returns success to not reveal spam detection, but email is not sent)
+
+---
+
+### 10. Test Suspicious Email Pattern
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d '{
+    "name": "Test User",
+    "email": "test@test.com",
+    "message": "This should be rejected due to test email"
+  }'
+```
+
+**Expected:** `{"success": false, "error": "Please provide a valid email address"}`
+
+---
+
 ## Verify Email Delivery
 
 After a successful submission:
@@ -220,7 +255,15 @@ console.log(result);
 | Field | Type | Required | Min | Max | Notes |
 |-------|------|----------|-----|-----|-------|
 | name | string | Yes | 2 | 100 | - |
-| email | string | Yes | - | - | Must be valid email |
+| email | string | Yes | - | - | Must be valid email, checked for spam patterns |
 | company | string | No | - | 100 | Can be empty |
-| phone | string | No | - | 20 | Can be empty |
 | message | string | Yes | 10 | 1000 | - |
+| honeypot | string | No | - | - | **Bot trap**: Must be empty. Hidden field bots will fill |
+
+## Security Features
+
+- **Honeypot Field**: Hidden field that humans won't see/fill but bots will
+- **Email Pattern Validation**: Blocks obviously fake emails (test@test, spam@, etc.)
+- **CORS Protection**: Only accepts requests from allowed origins
+- **Content-Type Validation**: Requires `application/json`
+- **XSS Protection**: All user input is HTML-escaped in emails
