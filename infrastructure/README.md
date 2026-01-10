@@ -427,10 +427,49 @@ Creates a Google Cloud Storage bucket for static website hosting.
 - `bucket-url` - GCS URL (gs://bucket-name)
 - `website-url` - Public HTTPS URL to access the site
 
+#### FunctionsStack
+
+Creates Cloud Functions (Gen 2) for serverless backend features.
+
+**Resources Created:**
+- `google_storage_bucket` - GCS bucket for function source code
+- `google_secret_manager_secret` - SendGrid API key storage
+- `google_cloudfunctions2_function` - Contact form handler
+- `google_cloudfunctions2_function_iam_member` - Public invoker access
+- `google_secret_manager_secret_iam_member` - Secret accessor permissions
+
+**Features:**
+- Contact form email delivery via SendGrid
+- CORS protection with configurable origins
+- Spam protection (honeypot, email validation)
+- Automatic scaling (0-10 instances)
+- Secure secret management
+- Comprehensive request validation
+
+**Outputs:**
+- `contact-form-url` - HTTPS URL of the deployed function
+- `contact-form-name` - Function name
+- `functions-bucket-name` - Source code bucket name
+- `sendgrid-secret-id` - Secret Manager secret ID
+
+**Setup:**
+
+```bash
+# 1. Build the function
+bash scripts/build-function.sh
+
+# 2. Configure SendGrid API key
+echo "SENDGRID_API_KEY=SG.your-key-here" >> .env
+
+# 3. Deploy
+pnpm run deploy
+```
+
+See [docs/FUNCTIONS_DEPLOYMENT.md](./docs/FUNCTIONS_DEPLOYMENT.md) for detailed setup guide.
+
 ### Future Stacks (Planned)
 
 - **CdnStack**: Cloud CDN with Load Balancer for custom domain and global delivery
-- **FunctionsStack**: Cloud Functions for serverless backend features
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for complete architecture documentation.
 

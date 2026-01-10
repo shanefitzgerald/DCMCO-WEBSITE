@@ -1,0 +1,194 @@
+name: Deploy Cloud Functions (Staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deploy even if no changes detected'
+        required: false
+        default: 'false'
+
+env:
+  NODE_VERSION: '20'
+  GCP_PROJECT_ID: 'dcmco-prod-2026'
+  GCP_REGION: 'australia-southeast1'
+  ENVIRONMENT: 'staging'
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write  # Required for Workload Identity Federation
+      pull-requests: write  # For PR comments
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ================================================================
+      # Authenticate with GCP
+      # ================================================================
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # ================================================================
+      # Build Cloud Function
+      # ================================================================
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build Cloud Function
+        run: bash infrastructure/scripts/build-function.sh
+
+      - name: Verify function package
+        run: |
+          echo "Function package created:"
+          ls -lh infrastructure/function-source.zip
+          echo ""
+          echo "Package contents (first 20 files):"
+          unzip -l infrastructure/function-source.zip | head -25
+
+      # ================================================================
+      # Deploy with CDKTF
+      # ================================================================
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install infrastructure dependencies
+        working-directory: ./infrastructure
+        run: pnpm install
+
+      - name: Generate CDKTF provider bindings
+        working-directory: ./infrastructure
+        run: pnpm run get
+
+      - name: Create infrastructure .env file
+        working-directory: ./infrastructure
+        run: |
+          cat > .env << EOF
+          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
+          GCP_REGION=${{ env.GCP_REGION }}
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          GCS_BUCKET_NAME=dcmco-website-staging
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_STAGING }}
+          EMAIL_RECIPIENT=shanesrf@gmail.com
+          FROM_EMAIL=shanesrf@gmail.com
+          ALLOWED_ORIGINS=http://localhost:3000,https://dcmco-staging.web.app
+          EOF
+
+      - name: CDKTF Synth
+        working-directory: ./infrastructure
+        run: pnpm run synth
+
+      - name: CDKTF Deploy
+        working-directory: ./infrastructure
+        run: pnpm run deploy:auto
+
+      # ================================================================
+      # Test Deployed Function
+      # ================================================================
+
+      - name: Extract function URL
+        id: function-url
+        working-directory: ./infrastructure
+        run: |
+          # Wait a moment for outputs to be written
+          sleep 2
+
+          # Extract URL from outputs
+          URL=$(cat cdktf.out/stacks/dcmco-website-functions/outputs.json | jq -r '.["contact-form-url"].value')
+
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "Error: Could not extract function URL from outputs"
+            cat cdktf.out/stacks/dcmco-website-functions/outputs.json
+            exit 1
+          fi
+
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Function deployed to: $URL"
+
+      - name: Wait for function to be ready
+        run: |
+          echo "Waiting 30 seconds for function to be fully ready..."
+          sleep 30
+
+      - name: Run deployment tests
+        run: |
+          bash infrastructure/scripts/test-deployed-function.sh \
+            "${{ steps.function-url.outputs.url }}" \
+            "https://dcmco-staging.web.app"
+
+      # ================================================================
+      # Save Outputs
+      # ================================================================
+
+      - name: Save function URL
+        run: |
+          mkdir -p .github/outputs
+          echo "${{ steps.function-url.outputs.url }}" > .github/outputs/staging-function-url.txt
+          echo "Function URL saved to .github/outputs/staging-function-url.txt"
+
+      - name: Comment on commit with deployment info
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.function-url.outputs.url }}';
+            const sha = context.sha.substring(0, 7);
+
+            const message = `### ✅ Cloud Functions Deployed (Staging)
+
+            **Function URL:** \`${url}\`
+
+            **Environment:** staging
+            **Region:** ${{ env.GCP_REGION }}
+            **Commit:** ${sha}
+
+            **Tests:**
+            - ✅ Function health check passed
+            - ✅ CORS configuration verified
+            - ✅ Validation working
+            - ✅ Spam protection active
+
+            **Test manually:**
+            \`\`\`bash
+            curl -X POST "${url}" \\
+              -H "Content-Type: application/json" \\
+              -H "Origin: https://dcmco-staging.web.app" \\
+              -d '{"name":"Test","email":"test@example.com","message":"Test from deployed function"}'
+            \`\`\`
+
+            **Next steps:**
+            1. Verify email delivery in [SendGrid Activity](https://app.sendgrid.com/email_activity)
+            2. Test from staging frontend: https://dcmco-staging.web.app
+            3. Check function logs if needed:
+               \`\`\`bash
+               gcloud functions logs read dcmco-website-staging-contact-form --region=${{ env.GCP_REGION }} --limit=50
+               \`\`\`
+            `;
+
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            });
+
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: function-outputs-staging
+          path: .github/outputs/
+          retention-days: 30

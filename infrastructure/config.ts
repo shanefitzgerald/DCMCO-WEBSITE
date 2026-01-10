@@ -6,7 +6,7 @@
  */
 
 import * as dotenv from "dotenv";
-import { StorageStackConfig } from "./stacks";
+import { StorageStackConfig, FunctionsStackConfig } from "./stacks";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -47,6 +47,16 @@ export interface EnvironmentConfig {
   ENABLE_BUCKET_VERSIONING?: boolean;
   BUCKET_LIFECYCLE_DAYS?: number;
   UNIFORM_BUCKET_LEVEL_ACCESS?: boolean;
+
+  // Cloud Functions configuration
+  SENDGRID_API_KEY?: string;
+  EMAIL_RECIPIENT?: string;
+  FROM_EMAIL?: string;
+  ALLOWED_ORIGINS?: string;
+  FUNCTION_MEMORY_MB?: number;
+  FUNCTION_TIMEOUT_SECONDS?: number;
+  FUNCTION_MAX_INSTANCES?: number;
+  FUNCTION_MIN_INSTANCES?: number;
 }
 
 /**
@@ -192,6 +202,16 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
     ENABLE_BUCKET_VERSIONING: getBooleanEnvVar("ENABLE_BUCKET_VERSIONING", false),
     BUCKET_LIFECYCLE_DAYS: getNumberEnvVar("BUCKET_LIFECYCLE_DAYS"),
     UNIFORM_BUCKET_LEVEL_ACCESS: getBooleanEnvVar("UNIFORM_BUCKET_LEVEL_ACCESS", true),
+
+    // Cloud Functions configuration
+    SENDGRID_API_KEY: getEnvVar("SENDGRID_API_KEY"),
+    EMAIL_RECIPIENT: getEnvVar("EMAIL_RECIPIENT"),
+    FROM_EMAIL: getEnvVar("FROM_EMAIL"),
+    ALLOWED_ORIGINS: getEnvVar("ALLOWED_ORIGINS"),
+    FUNCTION_MEMORY_MB: getNumberEnvVar("FUNCTION_MEMORY_MB"),
+    FUNCTION_TIMEOUT_SECONDS: getNumberEnvVar("FUNCTION_TIMEOUT_SECONDS"),
+    FUNCTION_MAX_INSTANCES: getNumberEnvVar("FUNCTION_MAX_INSTANCES"),
+    FUNCTION_MIN_INSTANCES: getNumberEnvVar("FUNCTION_MIN_INSTANCES"),
   };
 
   // Validate configuration values
@@ -214,6 +234,46 @@ export function getStorageStackConfig(envConfig: EnvironmentConfig): StorageStac
     domainName: envConfig.DOMAIN_NAME,
     publicAccess: true, // Always true for static website hosting
   };
+}
+
+/**
+ * Convert environment config to FunctionsStackConfig
+ */
+export function getFunctionsStackConfig(envConfig: EnvironmentConfig): FunctionsStackConfig {
+  // Parse allowed origins from comma-separated string
+  const allowedOrigins = envConfig.ALLOWED_ORIGINS
+    ? envConfig.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
+    : getDefaultAllowedOrigins(envConfig.ENVIRONMENT);
+
+  return {
+    projectId: envConfig.GCP_PROJECT_ID,
+    region: envConfig.GCP_REGION,
+    zone: envConfig.GCP_ZONE,
+    environment: envConfig.ENVIRONMENT,
+    allowedOrigins,
+    sendgridApiKey: envConfig.SENDGRID_API_KEY,
+    emailRecipient: envConfig.EMAIL_RECIPIENT,
+    fromEmail: envConfig.FROM_EMAIL,
+    memoryMb: envConfig.FUNCTION_MEMORY_MB,
+    timeoutSeconds: envConfig.FUNCTION_TIMEOUT_SECONDS,
+    maxInstances: envConfig.FUNCTION_MAX_INSTANCES,
+    minInstances: envConfig.FUNCTION_MIN_INSTANCES,
+  };
+}
+
+/**
+ * Get default allowed origins based on environment
+ */
+function getDefaultAllowedOrigins(environment: string): string[] {
+  const defaults = ["http://localhost:3000"];
+
+  if (environment === "production") {
+    defaults.push("https://dcmco-prod-2026.web.app");
+  } else if (environment === "staging") {
+    defaults.push("https://dcmco-staging.web.app");
+  }
+
+  return defaults;
 }
 
 /**
