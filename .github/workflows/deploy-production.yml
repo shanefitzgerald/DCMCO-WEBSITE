@@ -200,17 +200,22 @@ jobs:
       # ============================================
       - name: Deployment Summary
         if: always()
+        env:
+          BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BUCKET_REGION: ${{ secrets.GCS_BUCKET_LOCATION }}
+          DOMAIN: ${{ secrets.DOMAIN_NAME }}
         run: |
           echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
-          echo "- **GCP Project:** ${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Bucket:** ${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region:** ${{ secrets.GCS_BUCKET_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GCP Project:** ${PROJECT_ID}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bucket:** ${BUCKET_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${BUCKET_REGION}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ secrets.DOMAIN_NAME }}" ]; then
-            echo "- [Production Website](https://${{ secrets.DOMAIN_NAME }})" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${DOMAIN}" ]; then
+            echo "- [Production Website](https://${DOMAIN})" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "- [Direct GCS Link](https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME_PRODUCTION }}/index.html)" >> $GITHUB_STEP_SUMMARY
-          echo "- [GCS Bucket](https://console.cloud.google.com/storage/browser/${{ secrets.GCS_BUCKET_NAME_PRODUCTION }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Direct GCS Link](https://storage.googleapis.com/${BUCKET_NAME}/index.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [GCS Bucket](https://console.cloud.google.com/storage/browser/${BUCKET_NAME})" >> $GITHUB_STEP_SUMMARY

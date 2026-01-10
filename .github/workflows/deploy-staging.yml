@@ -221,14 +221,18 @@ jobs:
       # ============================================
       - name: Deployment Summary
         if: always()
+        env:
+          BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME_STAGING }}
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BUCKET_REGION: ${{ secrets.GCS_BUCKET_LOCATION }}
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** Staging" >> $GITHUB_STEP_SUMMARY
-          echo "- **GCP Project:** ${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Bucket:** ${{ secrets.GCS_BUCKET_NAME_STAGING }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region:** ${{ secrets.GCS_BUCKET_LOCATION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GCP Project:** ${PROJECT_ID}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bucket:** ${BUCKET_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${BUCKET_REGION}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [Website](https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME_STAGING }}/index.html)" >> $GITHUB_STEP_SUMMARY
-          echo "- [GCS Bucket](https://console.cloud.google.com/storage/browser/${{ secrets.GCS_BUCKET_NAME_STAGING }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Website](https://storage.googleapis.com/${BUCKET_NAME}/index.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [GCS Bucket](https://console.cloud.google.com/storage/browser/${BUCKET_NAME})" >> $GITHUB_STEP_SUMMARY
