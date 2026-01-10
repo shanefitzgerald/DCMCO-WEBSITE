@@ -107,6 +107,12 @@ jobs:
       # ============================================
       # 4. Build Next.js Site
       # ============================================
+      - name: Configure npm authentication for Artifact Registry
+        run: |
+          echo "@dcmco:registry=https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/" >> .npmrc
+          echo "//australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:always-auth=true" >> .npmrc
+          npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+
       - name: Install website dependencies
         run: pnpm install
 
