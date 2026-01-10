@@ -109,9 +109,17 @@ jobs:
       # ============================================
       - name: Configure npm authentication for Artifact Registry
         run: |
-          # Copy .npmrc template and authenticate
+          # Copy .npmrc template
           cp .npmrc.example .npmrc
-          npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+
+          # Generate auth token using gcloud
+          TOKEN=$(gcloud auth print-access-token)
+
+          # Add authentication token to .npmrc
+          echo "//australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}" >> .npmrc
+
+          # Verify .npmrc configuration
+          cat .npmrc
 
       - name: Install website dependencies
         run: pnpm install
