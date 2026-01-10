@@ -109,7 +109,11 @@ jobs:
 
       - name: Install website dependencies
         run: |
-          # Verify we're in the right directory
+          # Remove lockfile to force fresh resolution with new .npmrc
+          echo "Removing pnpm-lock.yaml to force fresh package resolution..."
+          rm -f pnpm-lock.yaml
+
+          # Verify we're in the right directory and .npmrc exists
           echo "=== Current directory ==="
           pwd
           ls -la .npmrc* || echo "No .npmrc files found"
@@ -120,7 +124,7 @@ jobs:
           pnpm config list
           echo "======================="
 
-          # Install with no-frozen-lockfile to handle lockfile compatibility
+          # Install without lockfile
           pnpm install --no-frozen-lockfile
 
       - name: Build Next.js site
