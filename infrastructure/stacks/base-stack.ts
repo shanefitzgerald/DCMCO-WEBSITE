@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { TerraformStack } from "cdktf";
+import { TerraformStack, GcsBackend } from "cdktf";
 import { GoogleProvider } from "@cdktf/provider-google/lib/provider";
 
 /**
@@ -56,6 +56,12 @@ export abstract class BaseStack extends TerraformStack {
     super(scope, id);
 
     this.config = config;
+
+    // Configure GCS backend for remote state storage
+    new GcsBackend(this, {
+      bucket: "dcmco-terraform-state",
+      prefix: `terraform/state/${config.environment}/${id}`,
+    });
 
     // Configure GCP Provider with authentication
     this.provider = new GoogleProvider(this, "google", {
