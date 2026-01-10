@@ -26,7 +26,7 @@ export default function Home() {
         gap: '20px'
       }}>
         <main>
-          <h1>DCMCO Website shaneo</h1>
+          <h1>DCMCO Website shaneo was here</h1>
           <p>A construction industry AI consultancy</p>
         </main>
         <Button onClick={handleClick} variant="primary">
