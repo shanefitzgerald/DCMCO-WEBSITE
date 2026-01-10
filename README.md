@@ -140,17 +140,36 @@ Next.js uses file-based routing. To add a new page:
 
 ## Deployment
 
-This project is configured for static export to Google Cloud Storage (GCS).
+This project is configured for static export to Google Cloud Storage (GCS) with automated deployments via GitHub Actions.
 
-### Build Process
+### Quick Links
+
+- 📖 **[Full Deployment Guide](docs/DEPLOYMENT.md)** - Comprehensive procedures, rollback steps, and troubleshooting
+- 🔄 [Staging Deployments](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-staging.yml) - View staging deployment history
+- 🚀 [Production Deployments](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml) - View production deployment history
+
+### Automated Deployments
+
+Deployments are automatically triggered when code is pushed to the repository:
+
+- **Staging**: Deploys automatically on push to `main` branch
+- **Production**: Requires manual approval via GitHub Actions UI
+
+**To deploy to production:**
+1. Go to [Actions](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-production.yml)
+2. Click "Run workflow"
+3. Enter `deploy` as confirmation
+4. Click "Run workflow" button
+
+### Manual Build Process
 
 ```bash
-# Build the static site
+# Build the static site locally
 pnpm build
 ```
 
 This generates static HTML files in the `/out` directory, which can be deployed to:
-- Google Cloud Storage
+- Google Cloud Storage (recommended)
 - AWS S3
 - GitHub Pages
 - Any static hosting provider
@@ -260,47 +279,6 @@ When a deployment fails, an issue is automatically created with:
 - **Commit comment** alerting about the failure
 
 Production failures are marked as `critical` for immediate attention.
-
-#### Slack Notifications (Optional)
-
-You can optionally enable Slack notifications for successful deployments.
-
-**To enable Slack notifications:**
-
-1. Create a Slack Incoming Webhook:
-   - Go to your Slack workspace settings
-   - Navigate to "Apps" → "Incoming Webhooks"
-   - Create a new webhook and copy the URL
-
-2. Add the webhook URL to GitHub:
-   - Go to: `Settings → Secrets and variables → Actions → Variables`
-   - Click "New repository variable"
-   - Add:
-     - **Name:** `SLACK_WEBHOOK_URL`
-     - **Value:** Your Slack webhook URL (e.g., `https://hooks.slack.com/services/...`)
-
-3. Slack notifications will include:
-   - Deployment success message with environment indicator
-   - Commit details and who triggered the deployment
-   - Buttons to view the live website and workflow run
-   - For production: Special formatting to highlight production deployments
-
-**Example Slack Message:**
-```
-✅ Deployment Successful: Staging
-
-Environment: Staging
-Triggered By: @username
-Commit: abc1234
-Duration: ~3 minutes
-
-Commit Message:
-feat: add new homepage section
-
-[View Website] [View Workflow]
-```
-
-**Note:** Slack notifications are completely optional. If `SLACK_WEBHOOK_URL` is not configured, the notification step is automatically skipped with no impact on deployment.
 
 ## Design System
 
