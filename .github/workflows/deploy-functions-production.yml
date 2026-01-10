@@ -1,0 +1,220 @@
+name: Deploy Cloud Functions (Production)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+
+env:
+  NODE_VERSION: '20'
+  GCP_PROJECT_ID: 'dcmco-prod-2026'
+  GCP_REGION: 'australia-southeast1'
+  ENVIRONMENT: 'production'
+
+jobs:
+  # ================================================================
+  # Confirmation step for manual deploys
+  # ================================================================
+  validate:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "❌ Deployment cancelled"
+            echo "To deploy to production, type 'deploy' in the confirmation input"
+            exit 1
+          fi
+          echo "✅ Production deployment confirmed"
+
+  # ================================================================
+  # Deploy Cloud Functions to Production
+  # ================================================================
+  deploy-functions:
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || github.event_name == 'release')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ================================================================
+      # Authenticate with GCP
+      # ================================================================
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # ================================================================
+      # Build Cloud Function
+      # ================================================================
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build Cloud Function
+        run: bash infrastructure/scripts/build-function.sh
+
+      - name: Verify function package
+        run: |
+          echo "Function package created:"
+          ls -lh infrastructure/function-source.zip
+          echo ""
+          echo "Package contents (first 20 files):"
+          unzip -l infrastructure/function-source.zip | head -25
+
+      # ================================================================
+      # Deploy with CDKTF
+      # ================================================================
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install infrastructure dependencies
+        working-directory: ./infrastructure
+        run: pnpm install
+
+      - name: Generate CDKTF provider bindings
+        working-directory: ./infrastructure
+        run: pnpm run get
+
+      - name: Create infrastructure .env file
+        working-directory: ./infrastructure
+        run: |
+          cat > .env << EOF
+          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
+          GCP_REGION=${{ env.GCP_REGION }}
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          GCS_BUCKET_NAME=dcmco-website-prod
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
+          EMAIL_RECIPIENT=shanesrf@gmail.com
+          FROM_EMAIL=shanesrf@gmail.com
+          ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
+          EOF
+
+      - name: CDKTF Synth
+        working-directory: ./infrastructure
+        run: pnpm run synth
+
+      - name: CDKTF Deploy
+        working-directory: ./infrastructure
+        run: pnpm run deploy:auto
+
+      # ================================================================
+      # Test Deployed Function
+      # ================================================================
+
+      - name: Extract function URL
+        id: function-url
+        working-directory: ./infrastructure
+        run: |
+          # Wait a moment for outputs to be written
+          sleep 2
+
+          # Extract URL from outputs
+          URL=$(cat cdktf.out/stacks/dcmco-website-functions/outputs.json | jq -r '.["contact-form-url"].value')
+
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "Error: Could not extract function URL from outputs"
+            cat cdktf.out/stacks/dcmco-website-functions/outputs.json
+            exit 1
+          fi
+
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Function deployed to: $URL"
+
+      - name: Wait for function to be ready
+        run: |
+          echo "Waiting 30 seconds for function to be fully ready..."
+          sleep 30
+
+      - name: Run deployment tests
+        run: |
+          bash infrastructure/scripts/test-deployed-function.sh \
+            "${{ steps.function-url.outputs.url }}" \
+            "https://dcmco-prod-2026.web.app"
+
+      # ================================================================
+      # Save Outputs
+      # ================================================================
+
+      - name: Save function URL
+        run: |
+          mkdir -p .github/outputs
+          echo "${{ steps.function-url.outputs.url }}" > .github/outputs/production-function-url.txt
+          echo "Function URL saved to .github/outputs/production-function-url.txt"
+
+      - name: Create release comment
+        if: github.event_name == 'release'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.function-url.outputs.url }}';
+            const releaseId = context.payload.release.id;
+
+            const message = `### ✅ Cloud Functions Deployed (Production)
+
+            **Function URL:** \`${url}\`
+
+            **Environment:** production
+            **Region:** ${{ env.GCP_REGION }}
+            **Release:** ${{ github.event.release.tag_name }}
+
+            **Tests:**
+            - ✅ Function health check passed
+            - ✅ CORS configuration verified
+            - ✅ Validation working
+            - ✅ Spam protection active
+
+            **⚠️ Important:**
+            - Update Next.js production environment variable with function URL
+            - Verify email delivery in [SendGrid Activity](https://app.sendgrid.com/email_activity)
+            - Test from production frontend
+            - Monitor function logs for any errors
+
+            **Test manually:**
+            \`\`\`bash
+            curl -X POST "${url}" \\
+              -H "Content-Type: application/json" \\
+              -H "Origin: https://dcmco-prod-2026.web.app" \\
+              -d '{"name":"Test","email":"test@example.com","message":"Test from production function"}'
+            \`\`\`
+
+            **Monitor:**
+            \`\`\`bash
+            gcloud functions logs read dcmco-website-production-contact-form --region=${{ env.GCP_REGION }} --limit=50
+            \`\`\`
+            `;
+
+            // Add comment to release
+            github.rest.repos.createReleaseComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              body: message
+            });
+
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: function-outputs-production
+          path: .github/outputs/
+          retention-days: 90
