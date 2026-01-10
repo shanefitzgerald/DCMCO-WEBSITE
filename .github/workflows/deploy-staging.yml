@@ -57,11 +57,15 @@ jobs:
 
       - name: Configure npm authentication for Artifact Registry
         run: |
-          # Copy .npmrc template
-          cp .npmrc.example .npmrc
+          # Generate auth token using gcloud
+          TOKEN=$(gcloud auth print-access-token)
 
-          # Use google-artifactregistry-auth to configure authentication
-          npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+          # Create .npmrc with scope configuration and auth token
+          cat > .npmrc << EOF
+          @dcmco:registry=https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/
+          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:always-auth=true
+          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}
+          EOF
 
           # Verify .npmrc configuration
           echo "=== .npmrc contents ==="
@@ -106,11 +110,15 @@ jobs:
       # ============================================
       - name: Configure npm authentication for Artifact Registry
         run: |
-          # Copy .npmrc template
-          cp .npmrc.example .npmrc
+          # Generate auth token using gcloud
+          TOKEN=$(gcloud auth print-access-token)
 
-          # Use google-artifactregistry-auth to configure authentication
-          npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+          # Create .npmrc with scope configuration and auth token
+          cat > .npmrc << EOF
+          @dcmco:registry=https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/
+          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:always-auth=true
+          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}
+          EOF
 
           # Verify .npmrc configuration
           echo "=== .npmrc contents ==="
