@@ -37,15 +37,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
-      # Cache CDKTF CLI global installation
-      - name: Cache CDKTF CLI
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/pnpm/global
-          key: ${{ runner.os }}-cdktf-cli-${{ hashFiles('infrastructure/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-cdktf-cli-
-
       # Cache infrastructure node_modules separately
       - name: Cache infrastructure dependencies
         uses: actions/cache@v4
@@ -106,14 +97,7 @@ jobs:
       # 4. Deploy Infrastructure with CDKTF
       # ============================================
       - name: Install CDKTF CLI
-        run: |
-          if command -v cdktf &> /dev/null; then
-            echo "✓ CDKTF CLI already available (from cache)"
-            cdktf --version
-          else
-            echo "Installing CDKTF CLI..."
-            pnpm install -g cdktf-cli@^0.20.0
-          fi
+        run: pnpm install -g cdktf-cli@^0.20.0
 
       - name: Install infrastructure dependencies
         working-directory: ./infrastructure
