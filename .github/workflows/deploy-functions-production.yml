@@ -1,8 +1,6 @@
 name: Deploy Cloud Functions (Production)
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       confirm:
@@ -20,7 +18,6 @@ jobs:
   # Confirmation step for manual deploys
   # ================================================================
   validate:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Validate confirmation
@@ -37,7 +34,6 @@ jobs:
   # ================================================================
   deploy-functions:
     needs: [validate]
-    if: always() && (needs.validate.result == 'success' || github.event_name == 'release')
     runs-on: ubuntu-latest
 
     permissions:
@@ -162,13 +158,12 @@ jobs:
           echo "${{ steps.function-url.outputs.url }}" > .github/outputs/production-function-url.txt
           echo "Function URL saved to .github/outputs/production-function-url.txt"
 
-      - name: Create release comment
-        if: github.event_name == 'release'
+      - name: Create commit comment
         uses: actions/github-script@v7
         with:
           script: |
             const url = '${{ steps.function-url.outputs.url }}';
-            const releaseId = context.payload.release.id;
+            const sha = context.sha.substring(0, 7);
 
             const message = `### ✅ Cloud Functions Deployed (Production)
 
@@ -176,7 +171,7 @@ jobs:
 
             **Environment:** production
             **Region:** ${{ env.GCP_REGION }}
-            **Release:** ${{ github.event.release.tag_name }}
+            **Commit:** ${sha}
 
             **Tests:**
             - ✅ Function health check passed
@@ -204,11 +199,10 @@ jobs:
             \`\`\`
             `;
 
-            // Add comment to release
-            github.rest.repos.createReleaseComment({
+            github.rest.repos.createCommitComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              release_id: releaseId,
+              commit_sha: context.sha,
               body: message
             });
 

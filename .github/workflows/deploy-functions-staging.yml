@@ -1,13 +1,6 @@
 name: Deploy Cloud Functions (Staging)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'functions/**'
-      - 'infrastructure/stacks/functions-stack.ts'
-      - 'infrastructure/config.ts'
-      - 'infrastructure/scripts/build-function.sh'
   workflow_dispatch:
     inputs:
       force:
