@@ -103,10 +103,18 @@ jobs:
           echo "//australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}" >> .npmrc
 
           # Verify .npmrc configuration
+          echo "=== .npmrc contents ==="
           cat .npmrc
+          echo "======================="
 
       - name: Install website dependencies
-        run: pnpm install
+        run: |
+          # Verify pnpm can see the .npmrc config
+          echo "=== pnpm config list ==="
+          pnpm config list
+          echo "======================="
+
+          pnpm install
 
       - name: Build Next.js site
         run: pnpm run build
