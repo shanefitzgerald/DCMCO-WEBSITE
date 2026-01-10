@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@dcmco/design-system':
-        specifier: ^0.3.0
-        version: 0.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^0.3.1
+        version: 0.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next:
         specifier: 14.2.35
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -45,8 +45,8 @@ importers:
 
 packages:
 
-  '@dcmco/design-system@0.3.0':
-    resolution: {integrity: sha512-Y5I7XC1+2qIyOY3RyzXE2AvO7RQgCuE1qcoAGhH3bpOuQx2yYDo2V1SvRvhikIfnfB0JY9AgBETQCxx2gKTyFA==, tarball: https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/@dcmco/design-system/-/@dcmco/design-system-0.3.0.tgz}
+  '@dcmco/design-system@0.3.1':
+    resolution: {integrity: sha512-Go6IZlzxwVqIe8BKXLVpuJb2C69fBdXwY0jv7y5xiXirX5fFnCpeTQfeSZ00z4gsEOJ/WCW82N2MvrCtaJUaYQ==, tarball: https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/@dcmco/design-system/-/@dcmco/design-system-0.3.1.tgz}
     peerDependencies:
       react: '>=18.0.0'
       react-dom: '>=18.0.0'
@@ -1519,7 +1519,7 @@ packages:
 
 snapshots:
 
-  '@dcmco/design-system@0.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@dcmco/design-system@0.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@stitches/react': 1.2.8(react@18.3.1)
       react: 18.3.1

@@ -40,3 +40,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# infrastructure
+/infrastructure/cdktf.out/
+/infrastructure/.terraform/
+/infrastructure/*.tfstate
+/infrastructure/*.tfstate.*
+/infrastructure/.gen/
+/infrastructure/imports/
+/infrastructure/node_modules/
+/infrastructure/.env

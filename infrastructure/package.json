@@ -1,0 +1,45 @@
+{
+  "name": "dcmco-infrastructure",
+  "version": "1.0.0",
+  "description": "DCMCO Website Infrastructure as Code using CDKTF",
+  "private": true,
+  "scripts": {
+    "get": "cdktf get",
+    "build": "tsc",
+    "synth": "cdktf synth",
+    "compile": "tsc --pretty",
+    "watch": "tsc -w",
+    "test": "echo \"No tests yet\"",
+    "deploy": "cdktf deploy",
+    "deploy:auto": "cdktf deploy --auto-approve",
+    "destroy": "cdktf destroy",
+    "destroy:auto": "cdktf destroy --auto-approve",
+    "plan": "cdktf plan",
+    "diff": "cdktf diff",
+    "upgrade": "npm i cdktf@latest cdktf-cli@latest",
+    "upgrade:next": "npm i cdktf@next cdktf-cli@next"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cdktf": "^0.20.0",
+    "@cdktf/provider-google": "^11.0.0",
+    "constructs": "^10.3.0",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "cdktf",
+    "terraform",
+    "infrastructure",
+    "gcp",
+    "google-cloud"
+  ],
+  "author": "DCM CO",
+  "license": "MIT"
+}
