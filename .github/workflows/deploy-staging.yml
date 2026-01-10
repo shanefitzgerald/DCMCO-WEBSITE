@@ -55,6 +55,9 @@ jobs:
       - name: Setup Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      # ============================================
+      # 3. Configure npm authentication BEFORE any pnpm commands
+      # ============================================
       - name: Configure npm authentication for Artifact Registry
         run: |
           # Generate auth token using gcloud
@@ -68,15 +71,23 @@ jobs:
           EOF
 
           # Verify .npmrc configuration
-          echo "=== .npmrc contents ==="
+          echo "=== .npmrc contents AFTER CREATION ==="
           cat .npmrc
-          echo "======================="
+          echo "=== END .npmrc ==="
 
       # ============================================
-      # 3. Deploy Infrastructure with CDKTF
+      # 4. Deploy Infrastructure with CDKTF
       # ============================================
       - name: Install CDKTF CLI
-        run: pnpm install -g cdktf-cli@^0.20.0
+        run: |
+          echo "=== Before installing CDKTF CLI ==="
+          echo "Current directory: $(pwd)"
+          echo "Checking for .npmrc:"
+          ls -la .npmrc || echo "No .npmrc found"
+          echo "=== .npmrc contents ==="
+          cat .npmrc || echo "Cannot read .npmrc"
+          echo "=== Installing CDKTF CLI ==="
+          pnpm install -g cdktf-cli@^0.20.0
 
       - name: Install infrastructure dependencies
         working-directory: ./infrastructure
@@ -115,25 +126,8 @@ jobs:
         run: cdktf deploy --auto-approve
 
       # ============================================
-      # 4. Build Next.js Site
+      # 5. Build Next.js Site
       # ============================================
-      - name: Configure npm authentication for Artifact Registry
-        run: |
-          # Generate auth token using gcloud
-          TOKEN=$(gcloud auth print-access-token)
-
-          # Create .npmrc with scope configuration and auth token
-          cat > .npmrc << EOF
-          @dcmco:registry=https://australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/
-          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:always-auth=true
-          //australia-southeast1-npm.pkg.dev/dcmco-prod-2026/npm-packages/:_authToken=${TOKEN}
-          EOF
-
-          # Verify .npmrc configuration
-          echo "=== .npmrc contents ==="
-          cat .npmrc
-          echo "======================="
-
       - name: Install website dependencies
         run: |
           # Remove lockfile to force fresh resolution with new .npmrc
@@ -166,7 +160,7 @@ jobs:
           NEXT_PUBLIC_ENV: staging
 
       # ============================================
-      # 5. Deploy to GCS
+      # 6. Deploy to GCS
       # ============================================
       - name: Upload to GCS
         run: |
@@ -184,7 +178,7 @@ jobs:
             'gs://${{ secrets.GCS_BUCKET_NAME_STAGING }}/**/*.html'
 
       # ============================================
-      # 6. Verification
+      # 7. Verification
       # ============================================
       - name: Verify deployment
         run: |
@@ -198,7 +192,7 @@ jobs:
           echo "✅ Website is accessible and serving content"
 
       # ============================================
-      # 7. Summary
+      # 8. Summary
       # ============================================
       - name: Deployment Summary
         if: always()
