@@ -1,0 +1,16 @@
+{
+  "language": "typescript",
+  "app": "npx ts-node main.ts",
+  "projectId": "dcmco-infrastructure",
+  "sendCrashReports": "false",
+  "terraformProviders": [
+    "google@~>5.0"
+  ],
+  "terraformModules": [],
+  "context": {
+    "excludeStackIdFromLogicalIds": "true",
+    "allowSepCharsInLogicalIds": "true"
+  },
+  "codeMakerOutput": "imports",
+  "output": "cdktf.out"
+}
