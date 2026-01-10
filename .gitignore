@@ -50,3 +50,8 @@ next-env.d.ts
 /infrastructure/imports/
 /infrastructure/node_modules/
 /infrastructure/.env
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
