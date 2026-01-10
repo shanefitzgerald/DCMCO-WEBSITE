@@ -437,6 +437,28 @@ async function sendEmail(
     html: generateEmailHtml(data),
   };
 
+  // Mock mode for local development (no SendGrid API key)
+  if (!config.sendgridApiKey) {
+    console.log('');
+    console.log('='.repeat(80));
+    console.log('📧 MOCK EMAIL (SendGrid API key not configured)');
+    console.log('='.repeat(80));
+    console.log('To:', msg.to);
+    console.log('From:', `${msg.from.name} <${msg.from.email}>`);
+    console.log('Reply-To:', `${msg.replyTo.name} <${msg.replyTo.email}>`);
+    console.log('Subject:', msg.subject);
+    console.log('-'.repeat(80));
+    console.log('TEXT CONTENT:');
+    console.log(msg.text);
+    console.log('-'.repeat(80));
+    console.log('HTML CONTENT:');
+    console.log(msg.html.substring(0, 500) + '...');
+    console.log('='.repeat(80));
+    console.log('✅ Mock email logged successfully');
+    console.log('');
+    return;
+  }
+
   try {
     const [response] = await sgMail.send(msg);
 

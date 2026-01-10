@@ -1,23 +1,59 @@
 # Quick Testing Reference
 
-## Setup (First Time Only)
+## 🚀 Local Development (No SendGrid Required!)
+
+For detailed local development setup, see **[LOCAL_DEV.md](LOCAL_DEV.md)**.
+
+**Quick Start:**
+```bash
+cd functions/contact-form
+npm install
+cp .env.example .env
+# No need to add SENDGRID_API_KEY for local testing!
+npm run dev:watch
+```
+
+The function runs in **mock mode** when `SENDGRID_API_KEY` is not set - emails are logged to console instead of sent. Perfect for local development!
+
+---
+
+## 🧪 Automated Testing
+
+Run all tests with the included script:
+```bash
+bash test-function.sh
+```
+
+Run specific tests:
+```bash
+bash test-function.sh valid          # Valid submission
+bash test-function.sh honeypot       # Spam detection
+bash test-function.sh cors-preflight # CORS testing
+bash test-function.sh --help         # Show all options
+```
+
+---
+
+## 📋 Manual Testing
+
+### Setup (First Time Only)
 
 ```bash
 cd functions/contact-form
 npm install
 cp .env.example .env
-# Edit .env and add your SENDGRID_API_KEY
+# SENDGRID_API_KEY is optional for local dev (uses mock mode)
 ```
 
-## Start Local Function
+### Start Local Function
 
-### Option 1: Standard (rebuild required after changes)
+**Option 1: Standard** (rebuild required after changes)
 ```bash
 npm run build
 npm run dev
 ```
 
-### Option 2: Watch Mode (auto-reload on changes)
+**Option 2: Watch Mode** (auto-reload on changes) ⭐ Recommended
 ```bash
 npm run dev:watch
 ```
@@ -26,7 +62,7 @@ Function runs at: **http://localhost:8080**
 
 ---
 
-## Test Commands
+## Test Commands (curl)
 
 ### 1. Valid Submission (All Fields)
 
