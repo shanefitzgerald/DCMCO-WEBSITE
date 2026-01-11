@@ -89,7 +89,7 @@ jobs:
           region: ${{ env.GCP_REGION }}
           entry_point: contactForm
           source_dir: ./functions/contact-form
-          environment_variables: 'NODE_ENV=${{ env.ENVIRONMENT }},EMAIL_RECIPIENT=shanesrf@gmail.com,FROM_EMAIL=shanesrf@gmail.com,ALLOWED_ORIGINS="http://localhost:3000,https://dcmco-staging.web.app"'
+          environment_variables: NODE_ENV=${{ env.ENVIRONMENT }},EMAIL_RECIPIENT=shanesrf@gmail.com,FROM_EMAIL=shanesrf@gmail.com
           secrets: |
             SENDGRID_API_KEY=projects/${{ env.GCP_PROJECT_ID }}/secrets/dcmco-website-staging-sendgrid-api-key/versions/latest
           service_account: ${{ env.GCP_PROJECT_ID }}@appspot.gserviceaccount.com
