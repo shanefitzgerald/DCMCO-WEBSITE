@@ -77,16 +77,18 @@ jobs:
       # ================================================================
 
       - name: Create/Update SendGrid API Key Secret
+        env:
+          SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
         run: |
           # Check if secret exists
           if gcloud secrets describe dcmco-website-production-sendgrid-api-key --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
             echo "Secret exists, adding new version..."
-            echo -n "${{ secrets.SENDGRID_API_KEY_PRODUCTION }}" | gcloud secrets versions add dcmco-website-production-sendgrid-api-key \
+            echo -n "${SENDGRID_KEY}" | gcloud secrets versions add dcmco-website-production-sendgrid-api-key \
               --project=${{ env.GCP_PROJECT_ID }} \
               --data-file=-
           else
             echo "Creating new secret..."
-            echo -n "${{ secrets.SENDGRID_API_KEY_PRODUCTION }}" | gcloud secrets create dcmco-website-production-sendgrid-api-key \
+            echo -n "${SENDGRID_KEY}" | gcloud secrets create dcmco-website-production-sendgrid-api-key \
               --project=${{ env.GCP_PROJECT_ID }} \
               --replication-policy="automatic" \
               --data-file=-
