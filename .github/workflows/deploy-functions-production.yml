@@ -122,6 +122,14 @@ jobs:
           ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
           EOF
 
+      - name: Create placeholder function package for CDKTF
+        working-directory: ./infrastructure
+        run: |
+          # CDKTF expects this file but we don't actually use it
+          # since the Google action already deployed the code
+          echo "placeholder" > placeholder.txt
+          zip function-source.zip placeholder.txt
+
       - name: CDKTF Synth
         working-directory: ./infrastructure
         run: pnpm run synth
