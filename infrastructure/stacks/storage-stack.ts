@@ -1,7 +1,7 @@
 import { Construct } from "constructs";
 import { TerraformOutput } from "cdktf";
-import { StorageBucket } from "@cdktf/provider-google/lib/storage-bucket";
-import { StorageBucketIamBinding } from "@cdktf/provider-google/lib/storage-bucket-iam-binding";
+import { StorageBucket } from "../imports/providers/google/storage-bucket";
+import { StorageBucketIamBinding } from "../imports/providers/google/storage-bucket-iam-binding";
 import { BaseStack, BaseStackConfig } from "./base-stack";
 
 /**

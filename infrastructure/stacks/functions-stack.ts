@@ -1,14 +1,14 @@
 import { Construct } from "constructs";
 import { BaseStack, BaseStackConfig } from "./base-stack";
-import { StorageBucket } from "@cdktf/provider-google/lib/storage-bucket";
-import { StorageBucketObject } from "@cdktf/provider-google/lib/storage-bucket-object";
-import { Cloudfunctions2Function } from "@cdktf/provider-google/lib/cloudfunctions2-function";
-import { CloudfunctionsFunction } from "@cdktf/provider-google/lib/cloudfunctions-function";
-import { CloudfunctionsFunctionIamMember } from "@cdktf/provider-google/lib/cloudfunctions-function-iam-member";
-import { Cloudfunctions2FunctionIamMember } from "@cdktf/provider-google/lib/cloudfunctions2-function-iam-member";
-import { SecretManagerSecret } from "@cdktf/provider-google/lib/secret-manager-secret";
-import { SecretManagerSecretVersion } from "@cdktf/provider-google/lib/secret-manager-secret-version";
-import { SecretManagerSecretIamMember } from "@cdktf/provider-google/lib/secret-manager-secret-iam-member";
+import { StorageBucket } from "../imports/providers/google/storage-bucket";
+import { StorageBucketObject } from "../imports/providers/google/storage-bucket-object";
+import { Cloudfunctions2Function } from "../imports/providers/google/cloudfunctions2-function";
+import { CloudfunctionsFunction } from "../imports/providers/google/cloudfunctions-function";
+import { CloudfunctionsFunctionIamMember } from "../imports/providers/google/cloudfunctions-function-iam-member";
+import { Cloudfunctions2FunctionIamMember } from "../imports/providers/google/cloudfunctions2-function-iam-member";
+import { SecretManagerSecret } from "../imports/providers/google/secret-manager-secret";
+import { SecretManagerSecretVersion } from "../imports/providers/google/secret-manager-secret-version";
+import { SecretManagerSecretIamMember } from "../imports/providers/google/secret-manager-secret-iam-member";
 import { TerraformOutput } from "cdktf";
 import * as path from "path";
 

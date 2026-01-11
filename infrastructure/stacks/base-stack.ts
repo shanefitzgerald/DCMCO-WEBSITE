@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
 import { TerraformStack, GcsBackend } from "cdktf";
-import { GoogleProvider } from "@cdktf/provider-google/lib/provider";
+import { GoogleProvider } from "../imports/providers/google/provider";
 
 /**
  * Configuration for the base stack
