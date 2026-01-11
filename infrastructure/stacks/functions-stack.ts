@@ -210,7 +210,7 @@ export class FunctionsStack extends BaseStack {
     const functionSourceZip = new StorageBucketObject(this, "function-source", {
       name: `${functionName}-${config.environment}-${Date.now()}.zip`,
       bucket: this.functionsBucket.name,
-      source: path.resolve(__dirname, "../../function-source.zip"), // Will be created by build script
+      source: path.resolve(process.cwd(), "infrastructure/function-source.zip"), // Will be created by build script
     });
 
     // =========================================================================
