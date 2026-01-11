@@ -58,7 +58,7 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       # ================================================================
-      # Build and Deploy Function Code
+      # Build and Deploy Function (IaC)
       # ================================================================
 
       - name: Setup Node.js
@@ -72,8 +72,24 @@ jobs:
           npm install
           npm run build
 
-      - name: Deploy function code
-        id: deploy
+      - name: Ensure SendGrid secret exists in Secret Manager
+        env:
+          SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
+        run: |
+          SECRET_ID="dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key"
+
+          # Check if secret exists
+          if ! gcloud secrets describe $SECRET_ID --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
+            echo "Creating secret $SECRET_ID"
+            gcloud secrets create $SECRET_ID --project=${{ env.GCP_PROJECT_ID }}
+          fi
+
+          # Add/update secret version
+          echo -n "${SENDGRID_KEY}" | gcloud secrets versions add $SECRET_ID \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --data-file=-
+
+      - name: Deploy function with configuration
         uses: google-github-actions/deploy-cloud-functions@v3
         with:
           name: ${{ env.FUNCTION_NAME }}
@@ -81,62 +97,19 @@ jobs:
           region: ${{ env.GCP_REGION }}
           entry_point: contactForm
           source_dir: ./functions/contact-form
-
-      # ================================================================
-      # Configure Function with CDKTF (IaC)
-      # ================================================================
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.6.0"
-          terraform_wrapper: false
-
-      - name: Install CDKTF CLI
-        run: npm install -g cdktf-cli@^0.20.0
-
-      - name: Install infrastructure dependencies
-        working-directory: ./infrastructure
-        run: pnpm install
-
-      - name: Generate CDKTF provider bindings
-        working-directory: ./infrastructure
-        run: pnpm run get
-
-      - name: Create infrastructure .env file
-        working-directory: ./infrastructure
-        run: |
-          cat > .env << EOF
-          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
-          GCP_REGION=${{ env.GCP_REGION }}
-          ENVIRONMENT=${{ env.ENVIRONMENT }}
-          GCS_BUCKET_NAME=dcmco-website-prod
-          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
-          EMAIL_RECIPIENT=shanesrf@gmail.com
-          FROM_EMAIL=shanesrf@gmail.com
-          ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
-          EOF
-
-      - name: Create placeholder function package for CDKTF
-        working-directory: ./infrastructure
-        run: |
-          # CDKTF expects this file but we don't actually use it
-          # since the Google action already deployed the code
-          echo "placeholder" > placeholder.txt
-          zip function-source.zip placeholder.txt
-
-      - name: CDKTF Synth
-        working-directory: ./infrastructure
-        run: pnpm run synth
-
-      - name: Apply function configuration with CDKTF
-        working-directory: ./infrastructure
-        run: cdktf deploy dcmco-website-functions --auto-approve
+          memory: 256Mi
+          timeout: 60s
+          min_instance_count: 0
+          max_instance_count: 10
+          ingress_settings: ALLOW_ALL
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          environment_variables: |-
+            NODE_ENV=${{ env.ENVIRONMENT }}
+            EMAIL_RECIPIENT=shanesrf@gmail.com
+            FROM_EMAIL=shanesrf@gmail.com
+            ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
+          secrets: |-
+            SENDGRID_API_KEY=projects/${{ env.GCP_PROJECT_ID }}/secrets/dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key/versions/latest
 
       # ================================================================
       # Test Deployed Function
@@ -190,8 +163,8 @@ jobs:
             **Commit:** ${sha}
 
             **Deployment:**
-            - ✅ Function code deployed via Google GitHub Actions
-            - ✅ Configuration managed by CDKTF (IaC)
+            - ✅ Function deployed with full Infrastructure as Code configuration
+            - ✅ Environment variables and secrets managed declaratively
             - ✅ Tests passed
 
             **⚠️ Important:**

@@ -1,23 +1,46 @@
 # DCMCO Website Infrastructure
 
-Infrastructure as Code for the DCMCO website using CDKTF (Cloud Development Kit for Terraform) and Google Cloud Platform.
+Enterprise-grade Infrastructure as Code for the DCMCO website using CDKTF (Cloud Development Kit for Terraform) and Google Cloud Platform.
 
 This infrastructure uses a modular, TypeScript-based approach to manage cloud resources with strong typing, reusable components, and comprehensive documentation.
 
+## ⚠️ Important 2026 Update: Manual Provider Generation
+
+**As of December 2025**, the CDKTF team sunset prebuilt provider packages. The `@cdktf/provider-google` npm package is no longer maintained.
+
+**What this means:**
+- You must generate provider bindings locally using `cdktf get`
+- Bindings are generated from the Terraform registry into the `.gen/` directory
+- The `.gen/` directory is gitignored and must be regenerated in each environment
+- CI/CD workflows cache the `.gen/` directory for performance
+
+**Migration Required:**
+```bash
+# Remove old prebuilt provider (if present)
+pnpm remove @cdktf/provider-google
+
+# Generate bindings locally
+pnpm run get
+```
+
+See [Provider Generation](#provider-generation-2026-update) for detailed instructions.
+
 ## Table of Contents
 
+- [Important 2026 Update: Manual Provider Generation](#️-important-2026-update-manual-provider-generation)
 - [Prerequisites](#prerequisites)
-- [Installation](#installation)
+- [Getting Started](#getting-started)
+- [Provider Generation (2026 Update)](#provider-generation-2026-update)
 - [Configuration](#configuration)
 - [Available Commands](#available-commands)
 - [Project Structure](#project-structure)
 - [Deployed Infrastructure](#deployed-infrastructure)
 - [Working with Stacks](#working-with-stacks)
 - [Environment Management](#environment-management)
+- [CI/CD Pipelines](#cicd-pipelines)
 - [Deploying Website Content](#deploying-website-content)
 - [Troubleshooting](#troubleshooting)
 - [Safety & Best Practices](#safety--best-practices)
-- [CI/CD Integration](#cicd-integration)
 - [Resources](#resources)
 
 ## Prerequisites
@@ -57,7 +80,7 @@ gcloud auth list
 gcloud config get-value project
 ```
 
-## Installation
+## Getting Started
 
 ### 1. Install CDKTF CLI Globally
 
@@ -91,18 +114,24 @@ pnpm install
 
 This will install:
 - `cdktf` - Cloud Development Kit for Terraform
-- `@cdktf/provider-google` - GCP provider bindings
 - `constructs` - Infrastructure component framework
 - `dotenv` - Environment variable management
 - TypeScript and type definitions
 
-### 4. Download GCP Provider Bindings
+**Note**: The old `@cdktf/provider-google` package has been removed. Provider bindings are now generated locally.
+
+### 4. Generate Provider Bindings
 
 ```bash
 pnpm run get
 ```
 
-This downloads the Terraform Google provider and generates TypeScript bindings in the `imports/` directory.
+This runs `cdktf get` which:
+1. Reads `cdktf.json` to see which providers you need
+2. Downloads the Google Terraform provider from the registry
+3. Generates TypeScript bindings in the `.gen/` directory
+
+**First-time setup may take 2-3 minutes.**
 
 ### 5. Configure Environment
 
@@ -125,6 +154,142 @@ gcloud config set project dcmco-prod-2026
 
 # Verify authentication
 gcloud auth list
+```
+
+## Provider Generation (2026 Update)
+
+### Why Manual Provider Generation?
+
+In December 2025, the CDKTF team sunset prebuilt provider packages. Previously, you could install `@cdktf/provider-google` from npm. Now, you must generate provider bindings locally from the Terraform registry.
+
+**Benefits of this change:**
+- Always up-to-date with latest Terraform providers
+- Smaller npm package sizes
+- More control over provider versions
+- Consistent with Terraform workflows
+
+### How It Works
+
+**Old Way (Pre-2026):**
+```typescript
+// Install from npm
+import { GoogleProvider } from '@cdktf/provider-google';
+import { StorageBucket } from '@cdktf/provider-google/lib/storage-bucket';
+```
+
+**New Way (2026+):**
+```typescript
+// Generate locally with cdktf get
+import { GoogleProvider } from './.gen/providers/google/provider';
+import { StorageBucket } from './.gen/providers/google/storage-bucket';
+```
+
+### Configuration
+
+Provider configuration is defined in `cdktf.json`:
+
+```json
+{
+  "terraformProviders": [
+    "google@~>5.0"
+  ]
+}
+```
+
+### Generating Bindings
+
+**Command:**
+```bash
+pnpm run get
+# or
+cdktf get
+```
+
+**What happens:**
+1. CDKTF reads `cdktf.json`
+2. Downloads `hashicorp/google` provider from Terraform registry
+3. Generates TypeScript bindings
+4. Outputs to `.gen/providers/google/`
+
+**Directory structure:**
+```
+infrastructure/
+├── .gen/                          # Generated (gitignored)
+│   └── providers/
+│       └── google/
+│           ├── provider/          # GoogleProvider
+│           ├── storage-bucket/    # StorageBucket resource
+│           ├── cloudfunctions2-function/
+│           └── ...hundreds of other resources
+```
+
+### CI/CD Caching
+
+Since `.gen/` is gitignored, CI/CD workflows must regenerate bindings on every run. To optimize performance, all workflows cache the `.gen/` directory:
+
+```yaml
+- name: Cache CDKTF provider bindings
+  uses: actions/cache@v4
+  with:
+    path: infrastructure/.gen
+    key: ${{ runner.os }}-cdktf-gen-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
+```
+
+**Cache invalidation:** The cache automatically rebuilds when:
+- `cdktf.json` changes (provider version update)
+- `package.json` changes (CDKTF version update)
+- OS changes (different runner)
+
+### Migration from Prebuilt Providers
+
+If you have an existing codebase using `@cdktf/provider-google`:
+
+**Step 1: Remove prebuilt package**
+```bash
+pnpm remove @cdktf/provider-google
+```
+
+**Step 2: Update imports in your code**
+```typescript
+// Before
+import { GoogleProvider } from '@cdktf/provider-google';
+import { StorageBucket } from '@cdktf/provider-google/lib/storage-bucket';
+
+// After
+import { GoogleProvider } from './.gen/providers/google/provider';
+import { StorageBucket } from './.gen/providers/google/storage-bucket';
+```
+
+**Step 3: Generate bindings**
+```bash
+pnpm run get
+```
+
+**Step 4: Verify**
+```bash
+pnpm run typecheck
+pnpm run synth
+```
+
+### Troubleshooting Provider Generation
+
+**Error: `Cannot find module './.gen/providers/google'`**
+
+Solution: Generate bindings first
+```bash
+pnpm run get
+```
+
+**Error: Provider generation is slow**
+
+This is normal on first run (2-3 minutes). Subsequent runs use cache. In CI/CD, the cache makes it much faster.
+
+**Error: `Error downloading provider`**
+
+Check your internet connection and Terraform registry access. Try clearing cache:
+```bash
+rm -rf .gen .terraform ~/.terraform.d/plugin-cache/
+pnpm run get
 ```
 
 ## Configuration
@@ -814,67 +979,134 @@ pnpm run deploy:auto
 3. Run `pnpm run deploy:auto`
 4. Rebuild and upload website content
 
-## CI/CD Integration
+## CI/CD Pipelines
 
-### GitHub Actions Example
+This project includes three enterprise-grade GitHub Actions workflows following 2026 best practices:
 
-```yaml
-name: Deploy Infrastructure
+### 1. PR Diff Workflow ([`.github/workflows/cdktf-pr-diff.yml`](../.github/workflows/cdktf-pr-diff.yml))
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'infrastructure/**'
+**Trigger**: Pull requests modifying `infrastructure/`
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+**Purpose**: Show infrastructure changes as PR comments for review
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+**Features**:
+- ✅ Workload Identity Federation (OIDC) authentication
+- ✅ Automatic provider binding generation with caching
+- ✅ Posts diff as PR comment
+- ✅ Detects "no changes" scenarios
+- ✅ Uploads diff artifacts for auditing
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+### 2. Staging Deployment ([`.github/workflows/cdktf-deploy-staging.yml`](../.github/workflows/cdktf-deploy-staging.yml))
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
+**Trigger**: Merge to `main` branch
 
-      - name: Install CDKTF
-        run: pnpm install -g cdktf-cli@^0.20.0
+**Purpose**: Automatically deploy to staging environment
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+**Features**:
+- ✅ Automatic deployment on merge
+- ✅ Secret Manager integration for sensitive values
+- ✅ Infrastructure verification step
+- ✅ Deployment artifact retention (30 days)
+- ✅ Concurrency control (no parallel deploys)
 
-      - name: Install dependencies
-        run: |
-          cd infrastructure
-          pnpm install
-          pnpm run get
+**Environment**: `staging` (no approval required)
 
-      - name: Deploy infrastructure
-        run: |
-          cd infrastructure
-          pnpm run deploy:auto
-        env:
-          GCP_PROJECT_ID: dcmco-prod-2026
-          GCP_REGION: australia-southeast1
-          ENVIRONMENT: production
-          GCS_BUCKET_NAME: dcmco-website-prod
+### 3. Production Deployment ([`.github/workflows/cdktf-deploy-production.yml`](../.github/workflows/cdktf-deploy-production.yml))
+
+**Trigger**: Manual workflow dispatch only
+
+**Purpose**: Deploy to production with strict controls
+
+**Safety Features**:
+- 🔒 Requires typing "DEPLOY TO PRODUCTION" to confirm
+- 🔒 Requires deployment reason
+- 🔒 Requires GitHub Environment approval gate
+- 🔒 Shows deployment plan before applying
+- 🔒 Creates deployment record (retained 365 days)
+- 🔒 Never cancels in-progress deployments
+
+**Environment**: `production` (requires approval from designated reviewers)
+
+### Security Best Practices (2026)
+
+All workflows implement:
+
+✅ **Workload Identity Federation (OIDC)** - No long-lived service account keys
+✅ **Least-privilege permissions** - `id-token: write`, `contents: read` only
+✅ **Pinned action versions** - Full commit SHAs, not mutable tags
+✅ **Manual provider generation** - Post-Dec 2025 CDKTF requirement
+✅ **State management** - GCS remote backend with locking
+✅ **Caching** - pnpm store and `.gen/` directory cached
+✅ **Concurrency control** - Prevents simultaneous deployments
+
+### Setup Requirements
+
+**1. Configure Workload Identity Federation in GCP**
+
+```bash
+# Create Workload Identity Pool
+gcloud iam workload-identity-pools create github-actions \
+  --location=global \
+  --display-name="GitHub Actions Pool"
+
+# Create OIDC provider
+gcloud iam workload-identity-pools providers create-oidc github-oidc \
+  --location=global \
+  --workload-identity-pool=github-actions \
+  --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository_owner=='your-org'"
 ```
 
-### Environment Secrets
+**2. Create Service Account**
 
-Required secrets in GitHub:
-- `GCP_SA_KEY` - Service account JSON key with required permissions
+```bash
+# Create service account
+gcloud iam service-accounts create github-actions \
+  --display-name="GitHub Actions"
+
+# Grant permissions
+gcloud projects add-iam-policy-binding dcmco-prod-2026 \
+  --member="serviceAccount:github-actions@dcmco-prod-2026.iam.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+# Allow GitHub to impersonate
+gcloud iam service-accounts add-iam-policy-binding \
+  github-actions@dcmco-prod-2026.iam.gserviceaccount.com \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/attribute.repository/YOUR_ORG/YOUR_REPO"
+```
+
+**3. Configure GitHub Environment**
+
+1. Go to your repository Settings > Environments
+2. Create `staging` environment (no protection rules)
+3. Create `production` environment with:
+   - Required reviewers: Add team members who can approve production deploys
+   - Wait timer: Optional 5-minute delay
+
+**4. Add GitHub Secrets**
+
+Required secrets:
+- `SENDGRID_API_KEY_STAGING` - SendGrid key for staging
+- `SENDGRID_API_KEY_PRODUCTION` - SendGrid key for production
+
+**5. Update Workflow Variables**
+
+Edit the workflow files to update:
+- `WORKLOAD_IDENTITY_PROVIDER`: Your pool provider path
+- `SERVICE_ACCOUNT`: Your service account email
+- `GCP_PROJECT_ID`: Your GCP project ID
+
+### Workflow Outputs
+
+Each workflow provides:
+- Deployment status summary
+- Links to deployed resources
+- Artifact uploads for debugging
+- Step-by-step execution logs
+
+See the workflow files for complete implementation details.
 
 ## Resources
 

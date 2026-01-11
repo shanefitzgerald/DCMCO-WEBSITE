@@ -1,0 +1,284 @@
+name: CDKTF Infrastructure PR Diff
+
+# ============================================================================
+# Trigger: Show infrastructure changes on Pull Requests
+# ============================================================================
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/cdktf-*.yml'
+
+# ============================================================================
+# Security: Least-privilege GITHUB_TOKEN permissions
+# ============================================================================
+permissions:
+  id-token: write      # Required for OIDC authentication to GCP
+  contents: read       # Required for checkout
+  pull-requests: write # Required to post diff comments
+
+# ============================================================================
+# Prevent concurrent runs on the same PR
+# ============================================================================
+concurrency:
+  group: cdktf-diff-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Node.js and CDKTF versions
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+  TERRAFORM_VERSION: '1.7.0'
+  CDKTF_VERSION: '0.20.0'
+
+  # GCP Configuration
+  GCP_PROJECT_ID: dcmco-prod-2026
+  GCP_REGION: australia-southeast1
+  WORKLOAD_IDENTITY_PROVIDER: 'projects/254813336446/locations/global/workloadIdentityPools/github-actions/providers/github-oidc'
+  SERVICE_ACCOUNT: 'github-actions@dcmco-prod-2026.iam.gserviceaccount.com'
+
+  # Environment
+  ENVIRONMENT: staging
+
+jobs:
+  diff:
+    name: Generate Infrastructure Diff
+    runs-on: ubuntu-latest
+
+    steps:
+      # ================================================================
+      # Checkout Code
+      # ================================================================
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0 # Full history for better context
+
+      # ================================================================
+      # Authenticate to GCP using Workload Identity Federation (OIDC)
+      # ================================================================
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          access_token_lifetime: '3600s'
+          create_credentials_file: true
+
+      # ================================================================
+      # Setup Node.js with caching
+      # ================================================================
+      - name: Setup Node.js
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ================================================================
+      # Setup pnpm with caching
+      # ================================================================
+      - name: Install pnpm
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('infrastructure/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # ================================================================
+      # Setup Terraform
+      # ================================================================
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # ================================================================
+      # Install CDKTF CLI
+      # ================================================================
+      - name: Install CDKTF CLI
+        run: npm install -g cdktf-cli@${{ env.CDKTF_VERSION }}
+
+      # ================================================================
+      # Install dependencies
+      # ================================================================
+      - name: Install infrastructure dependencies
+        working-directory: ./infrastructure
+        run: pnpm install --frozen-lockfile
+
+      # ================================================================
+      # Cache CDKTF provider bindings (.gen directory)
+      # ================================================================
+      - name: Cache CDKTF provider bindings
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: infrastructure/.gen
+          key: ${{ runner.os }}-cdktf-gen-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-cdktf-gen-
+
+      # ================================================================
+      # Generate provider bindings manually (post-December 2025)
+      # Google prebuilt bindings were sunset - must generate locally
+      # ================================================================
+      - name: Generate Google Cloud provider bindings
+        working-directory: ./infrastructure
+        run: |
+          echo "📦 Generating Google Cloud provider bindings locally..."
+          echo "Note: Prebuilt @cdktf/provider-google was sunset in Dec 2025"
+
+          # Remove old prebuilt provider if it exists
+          pnpm remove @cdktf/provider-google 2>/dev/null || true
+
+          # Generate bindings from Terraform registry
+          cdktf get
+
+          echo "✅ Provider bindings generated successfully"
+
+      # ================================================================
+      # Create environment configuration
+      # ================================================================
+      - name: Create infrastructure .env file
+        working-directory: ./infrastructure
+        run: |
+          cat > .env << EOF
+          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
+          GCP_REGION=${{ env.GCP_REGION }}
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          GCS_BUCKET_NAME=dcmco-website-staging
+          SENDGRID_API_KEY=placeholder-for-diff
+          EMAIL_RECIPIENT=shanesrf@gmail.com
+          FROM_EMAIL=shanesrf@gmail.com
+          ALLOWED_ORIGINS=http://localhost:3000,https://dcmco-staging.web.app
+          EOF
+
+      # ================================================================
+      # Run CDKTF Diff
+      # ================================================================
+      - name: Generate infrastructure diff
+        id: diff
+        working-directory: ./infrastructure
+        run: |
+          echo "🔍 Running CDKTF diff..."
+
+          # Run diff and capture output
+          cdktf diff '*' --skip-synth=false 2>&1 | tee diff-output.txt
+
+          # Check if diff detected changes
+          if grep -q "No changes" diff-output.txt; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      # ================================================================
+      # Post diff as PR comment
+      # ================================================================
+      - name: Comment infrastructure diff on PR
+        if: steps.diff.outputs.has_changes == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const diffOutput = fs.readFileSync('infrastructure/diff-output.txt', 'utf8');
+
+            // Truncate if too long (GitHub has comment size limits)
+            const maxLength = 60000;
+            let diffContent = diffOutput;
+            let truncated = false;
+
+            if (diffContent.length > maxLength) {
+              diffContent = diffContent.substring(0, maxLength);
+              truncated = true;
+            }
+
+            const comment = `## 🏗️ Infrastructure Changes Detected
+
+            This PR will make the following infrastructure changes:
+
+            <details>
+            <summary>Click to expand CDKTF diff output</summary>
+
+            \`\`\`terraform
+            ${diffContent}
+            \`\`\`
+
+            ${truncated ? '⚠️ **Note:** Diff output was truncated due to size. Run `cdktf diff` locally for full output.' : ''}
+
+            </details>
+
+            ---
+
+            ### ⚠️ Review Carefully
+
+            - Ensure all changes are intentional
+            - Verify that sensitive data is not exposed
+            - Check that resource deletions are expected
+            - Confirm changes align with security policies
+
+            ### Next Steps
+
+            Once this PR is merged to \`main\`:
+            - Staging will deploy automatically
+            - Production requires manual approval via GitHub Environments
+
+            ---
+            *Generated by CDKTF Diff workflow*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Comment no changes on PR
+        if: steps.diff.outputs.has_changes == 'false'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const comment = `## ✅ No Infrastructure Changes
+
+            This PR does not introduce any infrastructure changes.
+
+            The CDKTF diff shows that the infrastructure state will remain unchanged.
+
+            ---
+            *Generated by CDKTF Diff workflow*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      # ================================================================
+      # Upload diff artifact for review
+      # ================================================================
+      - name: Upload diff output
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: infrastructure-diff
+          path: infrastructure/diff-output.txt
+          retention-days: 30
