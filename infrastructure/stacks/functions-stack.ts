@@ -233,6 +233,10 @@ export class FunctionsStack extends BaseStack {
             object: functionSourceZip.name,
           },
         },
+        // Skip npm build scripts since we pre-build the function
+        environmentVariables: {
+          GOOGLE_NODE_RUN_SCRIPTS: "",
+        },
       },
 
       // Service configuration
