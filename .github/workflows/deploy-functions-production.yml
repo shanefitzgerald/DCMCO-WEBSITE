@@ -107,18 +107,18 @@ jobs:
           region: ${{ env.GCP_REGION }}
           entry_point: contactForm
           source_dir: ./functions/contact-form
-          env_vars: |
+          environment_variables: |
             NODE_ENV=${{ env.ENVIRONMENT }}
             EMAIL_RECIPIENT=shanesrf@gmail.com
             FROM_EMAIL=shanesrf@gmail.com
             ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
-          secret_environment_variables: |
+          secrets: |
             SENDGRID_API_KEY=dcmco-website-production-sendgrid-api-key:latest
           service_account: ${{ env.GCP_PROJECT_ID }}@appspot.gserviceaccount.com
-          min_instances: 0
-          max_instances: 10
+          min_instance_count: 0
+          max_instance_count: 10
           memory: 256Mi
-          timeout: 60s
+          service_timeout: 60s
 
       - name: Make function publicly accessible
         run: |
