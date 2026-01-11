@@ -29,7 +29,7 @@ concurrency:
 env:
   # Node.js and CDKTF versions
   NODE_VERSION: '20'
-  PNPM_VERSION: '8'
+  PNPM_VERSION: '9'
   TERRAFORM_VERSION: '1.7.0'
   CDKTF_VERSION: '0.20.0'
 
