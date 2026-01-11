@@ -103,7 +103,7 @@ jobs:
 
       - name: CDKTF Deploy
         working-directory: ./infrastructure
-        run: pnpm run deploy:auto
+        run: cdktf deploy dcmco-website-functions --auto-approve
 
       # ================================================================
       # Test Deployed Function
