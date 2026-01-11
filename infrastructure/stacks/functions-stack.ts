@@ -193,8 +193,9 @@ export class FunctionsStack extends BaseStack {
     // Store the SendGrid API key as a secret version
     // NOTE: This should ideally be set manually via gcloud or console
     // to avoid storing secrets in code
+    let sendgridSecretVersion;
     if (config.sendgridApiKey) {
-      new SecretManagerSecretVersion(this, "sendgrid-secret-version", {
+      sendgridSecretVersion = new SecretManagerSecretVersion(this, "sendgrid-secret-version", {
         secret: this.sendgridSecret.id,
         secretData: config.sendgridApiKey,
       });
@@ -222,6 +223,9 @@ export class FunctionsStack extends BaseStack {
       location: config.region,
       project: config.projectId,
       description: `Contact form handler for DCMCO website (${config.environment})`,
+
+      // Ensure secret is created before the function
+      dependsOn: sendgridSecretVersion ? [this.sendgridSecret, sendgridSecretVersion] : [this.sendgridSecret],
 
       // Build configuration
       buildConfig: {
