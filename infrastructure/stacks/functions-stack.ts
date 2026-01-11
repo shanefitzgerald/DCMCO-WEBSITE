@@ -287,11 +287,13 @@ export class FunctionsStack extends BaseStack {
     // =========================================================================
 
     // Grant the Cloud Function access to read the secret
+    // Cloud Functions Gen 2 uses the default compute service account
+    const projectNumber = "254813336446"; // dcmco-prod-2026 project number
     new SecretManagerSecretIamMember(this, "function-secret-accessor", {
       project: config.projectId,
       secretId: this.sendgridSecret.secretId,
       role: "roles/secretmanager.secretAccessor",
-      member: `serviceAccount:${config.projectId}@appspot.gserviceaccount.com`,
+      member: `serviceAccount:${projectNumber}-compute@developer.gserviceaccount.com`,
     });
 
     // Allow public (unauthenticated) access to the function
