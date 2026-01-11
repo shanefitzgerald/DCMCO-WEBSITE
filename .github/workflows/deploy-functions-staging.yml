@@ -13,6 +13,7 @@ env:
   GCP_PROJECT_ID: 'dcmco-prod-2026'
   GCP_REGION: 'australia-southeast1'
   ENVIRONMENT: 'staging'
+  FUNCTION_NAME: 'dcmco-website-staging-contact-form'
 
 jobs:
   deploy-functions:
@@ -20,8 +21,8 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write  # Required for Workload Identity Federation
-      pull-requests: write  # For PR comments
+      id-token: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -32,13 +33,14 @@ jobs:
       # ================================================================
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       # ================================================================
-      # Build Cloud Function
+      # Build and Deploy Function (IaC)
       # ================================================================
 
       - name: Setup Node.js
@@ -47,54 +49,49 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Build Cloud Function
-        run: bash infrastructure/scripts/build-function.sh
-
-      - name: Verify function package
+        working-directory: ./functions/contact-form
         run: |
-          echo "Function package created:"
-          ls -lh infrastructure/function-source.zip
-          echo ""
-          echo "Package contents (first 20 files):"
-          unzip -l infrastructure/function-source.zip | head -25
+          npm install
+          npm run build
 
-      # ================================================================
-      # Deploy with CDKTF
-      # ================================================================
+      - name: Ensure SendGrid secret exists in Secret Manager
+        env:
+          SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_STAGING }}
+        run: |
+          SECRET_ID="dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key"
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
+          # Check if secret exists
+          if ! gcloud secrets describe $SECRET_ID --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
+            echo "Creating secret $SECRET_ID"
+            gcloud secrets create $SECRET_ID --project=${{ env.GCP_PROJECT_ID }}
+          fi
+
+          # Add/update secret version
+          echo -n "${SENDGRID_KEY}" | gcloud secrets versions add $SECRET_ID \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --data-file=-
+
+      - name: Deploy function with configuration
+        uses: google-github-actions/deploy-cloud-functions@v3
         with:
-          version: 8
-
-      - name: Install infrastructure dependencies
-        working-directory: ./infrastructure
-        run: pnpm install
-
-      - name: Generate CDKTF provider bindings
-        working-directory: ./infrastructure
-        run: pnpm run get
-
-      - name: Create infrastructure .env file
-        working-directory: ./infrastructure
-        run: |
-          cat > .env << EOF
-          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
-          GCP_REGION=${{ env.GCP_REGION }}
-          ENVIRONMENT=${{ env.ENVIRONMENT }}
-          GCS_BUCKET_NAME=dcmco-website-staging
-          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_STAGING }}
-          EMAIL_RECIPIENT=shanesrf@gmail.com
-          FROM_EMAIL=shanesrf@gmail.com
-          ALLOWED_ORIGINS=http://localhost:3000,https://dcmco-staging.web.app
-          EOF
-
-      - name: CDKTF Synth
-        working-directory: ./infrastructure
-        run: pnpm run synth
-
-      - name: CDKTF Deploy
-        working-directory: ./infrastructure
-        run: pnpm run deploy:auto
+          name: ${{ env.FUNCTION_NAME }}
+          runtime: nodejs20
+          region: ${{ env.GCP_REGION }}
+          entry_point: contactForm
+          source_dir: ./functions/contact-form
+          memory: 256Mi
+          timeout: 60s
+          min_instance_count: 0
+          max_instance_count: 10
+          ingress_settings: ALLOW_ALL
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          environment_variables: |-
+            NODE_ENV=${{ env.ENVIRONMENT }}
+            EMAIL_RECIPIENT=shanesrf@gmail.com
+            FROM_EMAIL=shanesrf@gmail.com
+            ALLOWED_ORIGINS=http://localhost:3000,https://dcmco-staging.web.app
+          secrets: |-
+            SENDGRID_API_KEY=projects/${{ env.GCP_PROJECT_ID }}/secrets/dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key/versions/latest
 
       # ================================================================
       # Test Deployed Function
@@ -102,19 +99,11 @@ jobs:
 
       - name: Extract function URL
         id: function-url
-        working-directory: ./infrastructure
         run: |
-          # Wait a moment for outputs to be written
-          sleep 2
-
-          # Extract URL from outputs
-          URL=$(cat cdktf.out/stacks/dcmco-website-functions/outputs.json | jq -r '.["contact-form-url"].value')
-
-          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
-            echo "Error: Could not extract function URL from outputs"
-            cat cdktf.out/stacks/dcmco-website-functions/outputs.json
-            exit 1
-          fi
+          URL=$(gcloud functions describe ${{ env.FUNCTION_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --format="value(serviceConfig.uri)")
 
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Function deployed to: $URL"
@@ -140,7 +129,7 @@ jobs:
           echo "${{ steps.function-url.outputs.url }}" > .github/outputs/staging-function-url.txt
           echo "Function URL saved to .github/outputs/staging-function-url.txt"
 
-      - name: Comment on commit with deployment info
+      - name: Create commit comment
         if: github.event_name == 'push'
         uses: actions/github-script@v7
         with:
@@ -156,11 +145,10 @@ jobs:
             **Region:** ${{ env.GCP_REGION }}
             **Commit:** ${sha}
 
-            **Tests:**
-            - ✅ Function health check passed
-            - ✅ CORS configuration verified
-            - ✅ Validation working
-            - ✅ Spam protection active
+            **Deployment:**
+            - ✅ Function deployed with full Infrastructure as Code configuration
+            - ✅ Environment variables and secrets managed declaratively
+            - ✅ Tests passed
 
             **Test manually:**
             \`\`\`bash
@@ -173,10 +161,6 @@ jobs:
             **Next steps:**
             1. Verify email delivery in [SendGrid Activity](https://app.sendgrid.com/email_activity)
             2. Test from staging frontend: https://dcmco-staging.web.app
-            3. Check function logs if needed:
-               \`\`\`bash
-               gcloud functions logs read dcmco-website-staging-contact-form --region=${{ env.GCP_REGION }} --limit=50
-               \`\`\`
             `;
 
             github.rest.repos.createCommitComment({

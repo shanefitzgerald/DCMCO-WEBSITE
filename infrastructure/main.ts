@@ -1,8 +1,9 @@
 import { App } from "cdktf";
-import { StorageStack } from "./stacks";
+import { StorageStack, FunctionsStack } from "./stacks";
 import {
   loadEnvironmentConfig,
   getStorageStackConfig,
+  getFunctionsStackConfig,
   printConfigSummary,
   ConfigurationError
 } from "./config";
@@ -38,10 +39,12 @@ const app = new App();
  * Load and validate configuration
  */
 let config;
+let functionsConfig;
 try {
   const envConfig = loadEnvironmentConfig();
   printConfigSummary(envConfig);
   config = getStorageStackConfig(envConfig);
+  functionsConfig = getFunctionsStackConfig(envConfig);
 } catch (error) {
   if (error instanceof ConfigurationError) {
     console.error(`\n❌ Configuration Error:\n${error.message}\n`);
@@ -55,6 +58,12 @@ try {
  * Manages the GCS bucket for static website hosting with public access
  */
 new StorageStack(app, "dcmco-website-storage", config);
+
+/**
+ * Create the Functions Stack
+ * Manages Cloud Functions for serverless backend features (contact form, etc.)
+ */
+new FunctionsStack(app, "dcmco-website-functions", functionsConfig);
 
 /**
  * Example Stack Instantiation (from storage-stack.example.ts):
@@ -74,12 +83,6 @@ new StorageStack(app, "dcmco-website-storage", config);
  *
  * // CDN Stack - Cloud CDN with Load Balancer
  * new CdnStack(app, "dcmco-website-cdn", {
- *   ...config,
- *   bucketName: storageStack.bucket.name,
- * });
- *
- * // Functions Stack - Serverless functions for dynamic features
- * new FunctionsStack(app, "dcmco-website-functions", {
  *   ...config,
  *   bucketName: storageStack.bucket.name,
  * });

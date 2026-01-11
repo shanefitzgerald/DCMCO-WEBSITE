@@ -193,8 +193,9 @@ export class FunctionsStack extends BaseStack {
     // Store the SendGrid API key as a secret version
     // NOTE: This should ideally be set manually via gcloud or console
     // to avoid storing secrets in code
+    let sendgridSecretVersion;
     if (config.sendgridApiKey) {
-      new SecretManagerSecretVersion(this, "sendgrid-secret-version", {
+      sendgridSecretVersion = new SecretManagerSecretVersion(this, "sendgrid-secret-version", {
         secret: this.sendgridSecret.id,
         secretData: config.sendgridApiKey,
       });
@@ -210,7 +211,7 @@ export class FunctionsStack extends BaseStack {
     const functionSourceZip = new StorageBucketObject(this, "function-source", {
       name: `${functionName}-${config.environment}-${Date.now()}.zip`,
       bucket: this.functionsBucket.name,
-      source: path.resolve(__dirname, "../../function-source.zip"), // Will be created by build script
+      source: path.resolve(process.cwd(), "function-source.zip"), // Will be created by build script
     });
 
     // =========================================================================
@@ -223,6 +224,9 @@ export class FunctionsStack extends BaseStack {
       project: config.projectId,
       description: `Contact form handler for DCMCO website (${config.environment})`,
 
+      // Ensure secret is created before the function
+      dependsOn: sendgridSecretVersion ? [this.sendgridSecret, sendgridSecretVersion] : [this.sendgridSecret],
+
       // Build configuration
       buildConfig: {
         runtime: "nodejs20",
@@ -232,6 +236,10 @@ export class FunctionsStack extends BaseStack {
             bucket: this.functionsBucket.name,
             object: functionSourceZip.name,
           },
+        },
+        // Skip npm build scripts since we pre-build the function
+        environmentVariables: {
+          GOOGLE_NODE_RUN_SCRIPTS: "",
         },
       },
 
@@ -283,11 +291,13 @@ export class FunctionsStack extends BaseStack {
     // =========================================================================
 
     // Grant the Cloud Function access to read the secret
+    // Cloud Functions Gen 2 uses the default compute service account
+    const projectNumber = "254813336446"; // dcmco-prod-2026 project number
     new SecretManagerSecretIamMember(this, "function-secret-accessor", {
       project: config.projectId,
       secretId: this.sendgridSecret.secretId,
       role: "roles/secretmanager.secretAccessor",
-      member: `serviceAccount:${config.projectId}@appspot.gserviceaccount.com`,
+      member: `serviceAccount:${projectNumber}-compute@developer.gserviceaccount.com`,
     });
 
     // Allow public (unauthenticated) access to the function
