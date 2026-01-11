@@ -113,7 +113,7 @@ jobs:
             FROM_EMAIL=shanesrf@gmail.com
             ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
           secrets: |
-            SENDGRID_API_KEY=dcmco-website-production-sendgrid-api-key:latest
+            SENDGRID_API_KEY=projects/${{ env.GCP_PROJECT_ID }}/secrets/dcmco-website-production-sendgrid-api-key/versions/latest
           service_account: ${{ env.GCP_PROJECT_ID }}@appspot.gserviceaccount.com
           min_instance_count: 0
           max_instance_count: 10
