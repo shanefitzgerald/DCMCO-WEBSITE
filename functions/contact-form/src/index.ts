@@ -1,5 +1,5 @@
 import * as functions from '@google-cloud/functions-framework';
-import type { Request, Response } from 'express';
+import type { Request, Response } from '@google-cloud/functions-framework/build/src/functions';
 import Joi from 'joi';
 import sgMail from '@sendgrid/mail';
 
@@ -43,8 +43,6 @@ interface ErrorResponse {
   error: string;
   details?: Array<{ field: string; message: string }>;
 }
-
-type ApiResponse = SuccessResponse | ErrorResponse;
 
 /**
  * =============================================================================
@@ -593,7 +591,7 @@ function validateFormData(body: unknown): {
  * @param req - Express Request object
  * @param res - Express Response object
  */
-export async function contactForm(req: Request, res: Response): Promise<void> {
+export const contactForm = async (req: Request, res: Response): Promise<void> => {
   // Load environment configuration
   const config = getEnvironmentConfig();
 
