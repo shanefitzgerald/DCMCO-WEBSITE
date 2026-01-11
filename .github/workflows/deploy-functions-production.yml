@@ -12,6 +12,7 @@ env:
   GCP_PROJECT_ID: 'dcmco-prod-2026'
   GCP_REGION: 'australia-southeast1'
   ENVIRONMENT: 'production'
+  FUNCTION_NAME: 'dcmco-website-production-contact-form'
 
 jobs:
   # ================================================================
@@ -50,6 +51,7 @@ jobs:
       # ================================================================
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -64,87 +66,68 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Build Cloud Function
-        run: bash infrastructure/scripts/build-function.sh
-
-      - name: Verify function package
+      - name: Build and package Cloud Function
+        working-directory: ./functions/contact-form
         run: |
-          echo "Function package created:"
-          ls -lh infrastructure/function-source.zip
-          echo ""
-          echo "Package contents (first 20 files):"
-          unzip -l infrastructure/function-source.zip | head -25
+          npm install
+          npm run build
 
       # ================================================================
-      # Deploy with CDKTF
+      # Create or Update Secret
       # ================================================================
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.6.0"
-          terraform_wrapper: false
-
-      - name: Install CDKTF CLI
-        run: npm install -g cdktf-cli@^0.20.0
-
-      - name: Install infrastructure dependencies
-        working-directory: ./infrastructure
-        run: pnpm install
-
-      - name: Generate CDKTF provider bindings
-        working-directory: ./infrastructure
-        run: pnpm run get
-
-      - name: Create infrastructure .env file
-        working-directory: ./infrastructure
+      - name: Create/Update SendGrid API Key Secret
         run: |
-          cat > .env << EOF
-          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
-          GCP_REGION=${{ env.GCP_REGION }}
-          ENVIRONMENT=${{ env.ENVIRONMENT }}
-          GCS_BUCKET_NAME=dcmco-website-prod
-          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
-          EMAIL_RECIPIENT=shanesrf@gmail.com
-          FROM_EMAIL=shanesrf@gmail.com
-          ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
-          EOF
+          # Check if secret exists
+          if gcloud secrets describe dcmco-website-production-sendgrid-api-key --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
+            echo "Secret exists, adding new version..."
+            echo -n "${{ secrets.SENDGRID_API_KEY_PRODUCTION }}" | gcloud secrets versions add dcmco-website-production-sendgrid-api-key \
+              --project=${{ env.GCP_PROJECT_ID }} \
+              --data-file=-
+          else
+            echo "Creating new secret..."
+            echo -n "${{ secrets.SENDGRID_API_KEY_PRODUCTION }}" | gcloud secrets create dcmco-website-production-sendgrid-api-key \
+              --project=${{ env.GCP_PROJECT_ID }} \
+              --replication-policy="automatic" \
+              --data-file=-
+          fi
 
-      - name: CDKTF Synth
-        working-directory: ./infrastructure
-        run: pnpm run synth
+      # ================================================================
+      # Deploy Cloud Function
+      # ================================================================
 
-      - name: CDKTF Deploy
-        working-directory: ./infrastructure
-        run: cdktf deploy dcmco-website-functions --auto-approve
+      - name: Deploy to Cloud Functions
+        id: deploy
+        uses: google-github-actions/deploy-cloud-functions@v3
+        with:
+          name: ${{ env.FUNCTION_NAME }}
+          runtime: nodejs20
+          region: ${{ env.GCP_REGION }}
+          entry_point: contactForm
+          source_dir: ./functions/contact-form
+          env_vars: |
+            NODE_ENV=${{ env.ENVIRONMENT }}
+            EMAIL_RECIPIENT=shanesrf@gmail.com
+            FROM_EMAIL=shanesrf@gmail.com
+            ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
+          secret_environment_variables: |
+            SENDGRID_API_KEY=dcmco-website-production-sendgrid-api-key:latest
+          service_account: ${{ env.GCP_PROJECT_ID }}@appspot.gserviceaccount.com
+          min_instances: 0
+          max_instances: 10
+          memory: 256Mi
+          timeout: 60s
+
+      - name: Make function publicly accessible
+        run: |
+          gcloud functions add-invoker-policy-binding ${{ env.FUNCTION_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --member="allUsers" \
+            --project=${{ env.GCP_PROJECT_ID }}
 
       # ================================================================
       # Test Deployed Function
       # ================================================================
-
-      - name: Extract function URL
-        id: function-url
-        working-directory: ./infrastructure
-        run: |
-          # Wait a moment for outputs to be written
-          sleep 2
-
-          # Extract URL from outputs
-          URL=$(cat cdktf.out/stacks/dcmco-website-functions/outputs.json | jq -r '.["contact-form-url"].value')
-
-          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
-            echo "Error: Could not extract function URL from outputs"
-            cat cdktf.out/stacks/dcmco-website-functions/outputs.json
-            exit 1
-          fi
-
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Function deployed to: $URL"
 
       - name: Wait for function to be ready
         run: |
@@ -154,7 +137,7 @@ jobs:
       - name: Run deployment tests
         run: |
           bash infrastructure/scripts/test-deployed-function.sh \
-            "${{ steps.function-url.outputs.url }}" \
+            "${{ steps.deploy.outputs.url }}" \
             "https://dcmco-prod-2026.web.app"
 
       # ================================================================
@@ -164,14 +147,14 @@ jobs:
       - name: Save function URL
         run: |
           mkdir -p .github/outputs
-          echo "${{ steps.function-url.outputs.url }}" > .github/outputs/production-function-url.txt
+          echo "${{ steps.deploy.outputs.url }}" > .github/outputs/production-function-url.txt
           echo "Function URL saved to .github/outputs/production-function-url.txt"
 
       - name: Create commit comment
         uses: actions/github-script@v7
         with:
           script: |
-            const url = '${{ steps.function-url.outputs.url }}';
+            const url = '${{ steps.deploy.outputs.url }}';
             const sha = context.sha.substring(0, 7);
 
             const message = `### ✅ Cloud Functions Deployed (Production)
@@ -204,7 +187,7 @@ jobs:
 
             **Monitor:**
             \`\`\`bash
-            gcloud functions logs read dcmco-website-production-contact-form --region=${{ env.GCP_REGION }} --limit=50
+            gcloud functions logs read ${{ env.FUNCTION_NAME }} --region=${{ env.GCP_REGION }} --limit=50
             \`\`\`
             `;
 
