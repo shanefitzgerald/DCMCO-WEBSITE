@@ -84,6 +84,9 @@ jobs:
         with:
           version: 8
 
+      - name: Install CDKTF CLI
+        run: npm install -g cdktf-cli@^0.20.0
+
       - name: Install infrastructure dependencies
         working-directory: ./infrastructure
         run: pnpm install
