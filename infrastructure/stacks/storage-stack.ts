@@ -49,6 +49,7 @@ export class StorageStack extends BaseStack {
       location: config.bucketLocation,
       storageClass: "STANDARD",
       uniformBucketLevelAccess: true,
+      forceDestroy: true, // Allow Terraform to delete bucket with objects
 
       // Configure for static website hosting
       website: {

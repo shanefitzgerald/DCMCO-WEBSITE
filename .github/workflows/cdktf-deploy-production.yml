@@ -207,6 +207,29 @@ jobs:
           echo "✅ Secret $SECRET_ID is up to date"
 
       # ================================================================
+      # Build and package Cloud Function
+      # ================================================================
+      - name: Build Cloud Function source code
+        working-directory: ./functions/contact-form
+        run: |
+          echo "📦 Building Cloud Function..."
+          npm install --production
+          npm run build
+
+      - name: Package Cloud Function for deployment
+        working-directory: ./functions/contact-form
+        run: |
+          echo "📦 Creating function deployment package..."
+          # Create a clean package with only dist, package.json, and node_modules
+          zip -r ../../infrastructure/function-source.zip \
+            dist/ \
+            package.json \
+            node_modules/
+
+          echo "✅ Function package created at infrastructure/function-source.zip"
+          ls -lh ../../infrastructure/function-source.zip
+
+      # ================================================================
       # Create environment configuration
       # ================================================================
       - name: Create infrastructure .env file
