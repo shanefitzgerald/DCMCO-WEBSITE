@@ -126,7 +126,7 @@ jobs:
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm cache
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('infrastructure/pnpm-lock.yaml') }}
@@ -159,7 +159,7 @@ jobs:
       # Cache CDKTF provider bindings (.gen directory)
       # ================================================================
       - name: Cache CDKTF provider bindings
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: infrastructure/.gen
           key: ${{ runner.os }}-cdktf-gen-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
