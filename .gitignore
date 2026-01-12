@@ -58,3 +58,10 @@ next-env.d.ts
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+
+# Pulumi
+# Note: Pulumi.*.yaml files contain encrypted secrets and SHOULD be committed
+# The encryption is handled by Pulumi's secrets management
+# DO NOT add Pulumi.*.yaml to .gitignore - they need to be version controlled
+/infrastructure/.pulumi/
+/infrastructure/Pulumi.lock
