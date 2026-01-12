@@ -1,405 +1,405 @@
-name: Deploy Infrastructure - Production
+# name: Deploy Infrastructure - Production
 
-# ============================================================================
-# Trigger: Manual deployment to production only
-# ============================================================================
-on:
-  workflow_dispatch:
-    inputs:
-      confirm_production:
-        description: 'Type "DEPLOY TO PRODUCTION" to confirm'
-        required: true
-        type: string
-      deployment_reason:
-        description: 'Reason for this deployment'
-        required: true
-        type: string
+# # ============================================================================
+# # Trigger: Manual deployment to production only
+# # ============================================================================
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       confirm_production:
+#         description: 'Type "DEPLOY TO PRODUCTION" to confirm'
+#         required: true
+#         type: string
+#       deployment_reason:
+#         description: 'Reason for this deployment'
+#         required: true
+#         type: string
 
-# ============================================================================
-# Security: Least-privilege GITHUB_TOKEN permissions
-# ============================================================================
-permissions:
-  id-token: write # Required for OIDC authentication to GCP
-  contents: read  # Required for checkout
+# # ============================================================================
+# # Security: Least-privilege GITHUB_TOKEN permissions
+# # ============================================================================
+# permissions:
+#   id-token: write # Required for OIDC authentication to GCP
+#   contents: read  # Required for checkout
 
-# ============================================================================
-# Prevent concurrent deployments to production
-# ============================================================================
-concurrency:
-  group: cdktf-deploy-production
-  cancel-in-progress: false # Never cancel production deployments
+# # ============================================================================
+# # Prevent concurrent deployments to production
+# # ============================================================================
+# concurrency:
+#   group: cdktf-deploy-production
+#   cancel-in-progress: false # Never cancel production deployments
 
-env:
-  # Node.js and CDKTF versions
-  NODE_VERSION: '20'
-  PNPM_VERSION: '9'
-  TERRAFORM_VERSION: '1.7.0'
-  CDKTF_VERSION: '0.20.0'
+# env:
+#   # Node.js and CDKTF versions
+#   NODE_VERSION: '20'
+#   PNPM_VERSION: '9'
+#   TERRAFORM_VERSION: '1.7.0'
+#   CDKTF_VERSION: '0.20.0'
 
-  # GCP Configuration
-  GCP_PROJECT_ID: dcmco-prod-2026
-  GCP_REGION: australia-southeast1
-  WORKLOAD_IDENTITY_PROVIDER: 'projects/254813336446/locations/global/workloadIdentityPools/github-actions/providers/github-oidc'
-  SERVICE_ACCOUNT: 'github-actions@dcmco-prod-2026.iam.gserviceaccount.com'
+#   # GCP Configuration
+#   GCP_PROJECT_ID: dcmco-prod-2026
+#   GCP_REGION: australia-southeast1
+#   WORKLOAD_IDENTITY_PROVIDER: 'projects/254813336446/locations/global/workloadIdentityPools/github-actions/providers/github-oidc'
+#   SERVICE_ACCOUNT: 'github-actions@dcmco-prod-2026.iam.gserviceaccount.com'
 
-  # Environment
-  ENVIRONMENT: production
-  GCS_BUCKET_NAME: dcmco-website-prod
+#   # Environment
+#   ENVIRONMENT: production
+#   GCS_BUCKET_NAME: dcmco-website-prod
 
-jobs:
-  # ============================================================================
-  # Pre-deployment validation
-  # ============================================================================
-  validate-input:
-    name: Validate Production Deployment
-    runs-on: ubuntu-latest
+# jobs:
+#   # ============================================================================
+#   # Pre-deployment validation
+#   # ============================================================================
+#   validate-input:
+#     name: Validate Production Deployment
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Validate confirmation phrase
-        run: |
-          if [ "${{ github.event.inputs.confirm_production }}" != "DEPLOY TO PRODUCTION" ]; then
-            echo "❌ Invalid confirmation phrase!"
-            echo "Expected: DEPLOY TO PRODUCTION"
-            echo "Got: ${{ github.event.inputs.confirm_production }}"
-            exit 1
-          fi
+#     steps:
+#       - name: Validate confirmation phrase
+#         run: |
+#           if [ "${{ github.event.inputs.confirm_production }}" != "DEPLOY TO PRODUCTION" ]; then
+#             echo "❌ Invalid confirmation phrase!"
+#             echo "Expected: DEPLOY TO PRODUCTION"
+#             echo "Got: ${{ github.event.inputs.confirm_production }}"
+#             exit 1
+#           fi
 
-          echo "✅ Confirmation phrase validated"
-          echo "Deployment reason: ${{ github.event.inputs.deployment_reason }}"
-          echo "Triggered by: ${{ github.actor }}"
+#           echo "✅ Confirmation phrase validated"
+#           echo "Deployment reason: ${{ github.event.inputs.deployment_reason }}"
+#           echo "Triggered by: ${{ github.actor }}"
 
-  # ============================================================================
-  # Deploy to production (requires GitHub Environment approval)
-  # ============================================================================
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: validate-input
-    environment:
-      name: production
-      url: https://dcmco.com.au
+#   # ============================================================================
+#   # Deploy to production (requires GitHub Environment approval)
+#   # ============================================================================
+#   deploy-production:
+#     name: Deploy to Production
+#     runs-on: ubuntu-latest
+#     needs: validate-input
+#     environment:
+#       name: production
+#       url: https://dcmco.com.au
 
-    steps:
-      # ================================================================
-      # Checkout Code
-      # ================================================================
-      - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+#     steps:
+#       # ================================================================
+#       # Checkout Code
+#       # ================================================================
+#       - name: Checkout repository
+#         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
-      # ================================================================
-      # Authenticate to GCP using Workload Identity Federation (OIDC)
-      # ================================================================
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
-        with:
-          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.SERVICE_ACCOUNT }}
-          token_format: 'access_token'
-          access_token_lifetime: '3600s'
-          create_credentials_file: true
+#       # ================================================================
+#       # Authenticate to GCP using Workload Identity Federation (OIDC)
+#       # ================================================================
+#       - name: Authenticate to Google Cloud
+#         id: auth
+#         uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
+#         with:
+#           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ env.SERVICE_ACCOUNT }}
+#           token_format: 'access_token'
+#           access_token_lifetime: '3600s'
+#           create_credentials_file: true
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@f0990588f1e5b5af6827153b93673613abdc6ec7 # v2.1.1
+#       - name: Set up Cloud SDK
+#         uses: google-github-actions/setup-gcloud@f0990588f1e5b5af6827153b93673613abdc6ec7 # v2.1.1
 
-      # ================================================================
-      # Setup Node.js with caching
-      # ================================================================
-      - name: Setup Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+#       # ================================================================
+#       # Setup Node.js with caching
+#       # ================================================================
+#       - name: Setup Node.js
+#         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+#         with:
+#           node-version: ${{ env.NODE_VERSION }}
 
-      # ================================================================
-      # Setup pnpm with caching
-      # ================================================================
-      - name: Install pnpm
-        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
+#       # ================================================================
+#       # Setup pnpm with caching
+#       # ================================================================
+#       - name: Install pnpm
+#         uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+#         with:
+#           version: ${{ env.PNPM_VERSION }}
+#           run_install: false
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+#       - name: Get pnpm store directory
+#         id: pnpm-cache
+#         shell: bash
+#         run: |
+#           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
-      - name: Setup pnpm cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('infrastructure/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+#       - name: Setup pnpm cache
+#         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+#         with:
+#           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+#           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('infrastructure/pnpm-lock.yaml') }}
+#           restore-keys: |
+#             ${{ runner.os }}-pnpm-store-
 
-      # ================================================================
-      # Setup Terraform
-      # ================================================================
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
-          terraform_wrapper: false
+#       # ================================================================
+#       # Setup Terraform
+#       # ================================================================
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+#         with:
+#           terraform_version: ${{ env.TERRAFORM_VERSION }}
+#           terraform_wrapper: false
 
-      # ================================================================
-      # Install CDKTF CLI
-      # ================================================================
-      - name: Install CDKTF CLI
-        run: npm install -g cdktf-cli@${{ env.CDKTF_VERSION }}
+#       # ================================================================
+#       # Install CDKTF CLI
+#       # ================================================================
+#       - name: Install CDKTF CLI
+#         run: npm install -g cdktf-cli@${{ env.CDKTF_VERSION }}
 
-      # ================================================================
-      # Install dependencies
-      # ================================================================
-      - name: Install infrastructure dependencies
-        working-directory: ./infrastructure
-        run: pnpm install --frozen-lockfile
+#       # ================================================================
+#       # Install dependencies
+#       # ================================================================
+#       - name: Install infrastructure dependencies
+#         working-directory: ./infrastructure
+#         run: pnpm install --frozen-lockfile
 
-      # ================================================================
-      # Cache CDKTF provider bindings (.gen directory)
-      # ================================================================
-      - name: Cache CDKTF provider bindings
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
-        with:
-          path: infrastructure/.gen
-          key: ${{ runner.os }}-cdktf-gen-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-cdktf-gen-
+#       # ================================================================
+#       # Cache CDKTF provider bindings (.gen directory)
+#       # ================================================================
+#       - name: Cache CDKTF provider bindings
+#         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+#         with:
+#           path: infrastructure/.gen
+#           key: ${{ runner.os }}-cdktf-gen-${{ hashFiles('infrastructure/cdktf.json', 'infrastructure/package.json') }}
+#           restore-keys: |
+#             ${{ runner.os }}-cdktf-gen-
 
-      # ================================================================
-      # Generate provider bindings manually (post-December 2025)
-      # Google prebuilt bindings were sunset - must generate locally
-      # ================================================================
-      - name: Generate Google Cloud provider bindings
-        working-directory: ./infrastructure
-        run: |
-          echo "📦 Generating Google Cloud provider bindings locally..."
-          echo "Note: Prebuilt @cdktf/provider-google was sunset in Dec 2025"
+#       # ================================================================
+#       # Generate provider bindings manually (post-December 2025)
+#       # Google prebuilt bindings were sunset - must generate locally
+#       # ================================================================
+#       - name: Generate Google Cloud provider bindings
+#         working-directory: ./infrastructure
+#         run: |
+#           echo "📦 Generating Google Cloud provider bindings locally..."
+#           echo "Note: Prebuilt @cdktf/provider-google was sunset in Dec 2025"
 
-          # Remove old prebuilt provider if it exists
-          pnpm remove @cdktf/provider-google 2>/dev/null || true
+#           # Remove old prebuilt provider if it exists
+#           pnpm remove @cdktf/provider-google 2>/dev/null || true
 
-          # Generate bindings from Terraform registry
-          cdktf get
+#           # Generate bindings from Terraform registry
+#           cdktf get
 
-          echo "✅ Provider bindings generated successfully"
+#           echo "✅ Provider bindings generated successfully"
 
-      # ================================================================
-      # Ensure secrets exist in Secret Manager
-      # ================================================================
-      - name: Ensure SendGrid secret exists in Secret Manager
-        env:
-          SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
-        run: |
-          SECRET_ID="dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key"
+#       # ================================================================
+#       # Ensure secrets exist in Secret Manager
+#       # ================================================================
+#       - name: Ensure SendGrid secret exists in Secret Manager
+#         env:
+#           SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
+#         run: |
+#           SECRET_ID="dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key"
 
-          # Check if secret exists
-          if ! gcloud secrets describe $SECRET_ID --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
-            echo "Creating secret $SECRET_ID"
-            gcloud secrets create $SECRET_ID --project=${{ env.GCP_PROJECT_ID }}
-          fi
+#           # Check if secret exists
+#           if ! gcloud secrets describe $SECRET_ID --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
+#             echo "Creating secret $SECRET_ID"
+#             gcloud secrets create $SECRET_ID --project=${{ env.GCP_PROJECT_ID }}
+#           fi
 
-          # Add/update secret version
-          echo -n "${SENDGRID_KEY}" | gcloud secrets versions add $SECRET_ID \
-            --project=${{ env.GCP_PROJECT_ID }} \
-            --data-file=-
+#           # Add/update secret version
+#           echo -n "${SENDGRID_KEY}" | gcloud secrets versions add $SECRET_ID \
+#             --project=${{ env.GCP_PROJECT_ID }} \
+#             --data-file=-
 
-          echo "✅ Secret $SECRET_ID is up to date"
+#           echo "✅ Secret $SECRET_ID is up to date"
 
-      # ================================================================
-      # Build and package Cloud Function
-      # ================================================================
-      - name: Build Cloud Function source code
-        working-directory: ./functions/contact-form
-        run: |
-          echo "📦 Building Cloud Function..."
-          npm install --production
-          npm run build
+#       # ================================================================
+#       # Build and package Cloud Function
+#       # ================================================================
+#       - name: Build Cloud Function source code
+#         working-directory: ./functions/contact-form
+#         run: |
+#           echo "📦 Building Cloud Function..."
+#           npm install --production
+#           npm run build
 
-      - name: Package Cloud Function for deployment
-        working-directory: ./functions/contact-form
-        run: |
-          echo "📦 Creating function deployment package..."
-          # Create a clean package with only dist, package.json, and node_modules
-          zip -r ../../infrastructure/function-source.zip \
-            dist/ \
-            package.json \
-            node_modules/
+#       - name: Package Cloud Function for deployment
+#         working-directory: ./functions/contact-form
+#         run: |
+#           echo "📦 Creating function deployment package..."
+#           # Create a clean package with only dist, package.json, and node_modules
+#           zip -r ../../infrastructure/function-source.zip \
+#             dist/ \
+#             package.json \
+#             node_modules/
 
-          echo "✅ Function package created at infrastructure/function-source.zip"
-          ls -lh ../../infrastructure/function-source.zip
+#           echo "✅ Function package created at infrastructure/function-source.zip"
+#           ls -lh ../../infrastructure/function-source.zip
 
-      # ================================================================
-      # Create environment configuration
-      # ================================================================
-      - name: Create infrastructure .env file
-        working-directory: ./infrastructure
-        run: |
-          cat > .env << EOF
-          GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
-          GCP_REGION=${{ env.GCP_REGION }}
-          ENVIRONMENT=${{ env.ENVIRONMENT }}
-          GCS_BUCKET_NAME=${{ env.GCS_BUCKET_NAME }}
-          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
-          EMAIL_RECIPIENT=shanesrf@gmail.com
-          FROM_EMAIL=shanesrf@gmail.com
-          ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
-          EOF
+#       # ================================================================
+#       # Create environment configuration
+#       # ================================================================
+#       - name: Create infrastructure .env file
+#         working-directory: ./infrastructure
+#         run: |
+#           cat > .env << EOF
+#           GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
+#           GCP_REGION=${{ env.GCP_REGION }}
+#           ENVIRONMENT=${{ env.ENVIRONMENT }}
+#           GCS_BUCKET_NAME=${{ env.GCS_BUCKET_NAME }}
+#           SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
+#           EMAIL_RECIPIENT=shanesrf@gmail.com
+#           FROM_EMAIL=shanesrf@gmail.com
+#           ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
+#           EOF
 
-      # ================================================================
-      # Show deployment plan before applying
-      # ================================================================
-      - name: Show deployment plan
-        working-directory: ./infrastructure
-        run: |
-          echo "📋 Generating deployment plan for production..."
-          pnpm run synth
+#       # ================================================================
+#       # Show deployment plan before applying
+#       # ================================================================
+#       - name: Show deployment plan
+#         working-directory: ./infrastructure
+#         run: |
+#           echo "📋 Generating deployment plan for production..."
+#           pnpm run synth
 
-          echo "🔍 Running CDKTF diff to show changes..."
-          cdktf diff '*' --skip-synth=true 2>&1 | tee plan-output.txt
+#           echo "🔍 Running CDKTF diff to show changes..."
+#           cdktf diff '*' --skip-synth=true 2>&1 | tee plan-output.txt
 
-          echo ""
-          echo "⚠️  PRODUCTION DEPLOYMENT PLAN ABOVE ⚠️"
-          echo "Review carefully before proceeding!"
+#           echo ""
+#           echo "⚠️  PRODUCTION DEPLOYMENT PLAN ABOVE ⚠️"
+#           echo "Review carefully before proceeding!"
 
-      # ================================================================
-      # Deploy infrastructure with CDKTF
-      # ================================================================
-      - name: Deploy infrastructure to production
-        id: deploy
-        working-directory: ./infrastructure
-        run: |
-          echo "🚀 Deploying infrastructure to production..."
-          echo "Deployment reason: ${{ github.event.inputs.deployment_reason }}"
-          echo "Triggered by: ${{ github.actor }}"
-          echo ""
+#       # ================================================================
+#       # Deploy infrastructure with CDKTF
+#       # ================================================================
+#       - name: Deploy infrastructure to production
+#         id: deploy
+#         working-directory: ./infrastructure
+#         run: |
+#           echo "🚀 Deploying infrastructure to production..."
+#           echo "Deployment reason: ${{ github.event.inputs.deployment_reason }}"
+#           echo "Triggered by: ${{ github.actor }}"
+#           echo ""
 
-          # Deploy all stacks with auto-approval
-          # Note: Manual approval already happened via GitHub Environment
-          cdktf deploy '*' --auto-approve
+#           # Deploy all stacks with auto-approval
+#           # Note: Manual approval already happened via GitHub Environment
+#           cdktf deploy '*' --auto-approve
 
-          echo "✅ Infrastructure deployed successfully to production"
-          echo "deployment_status=success" >> $GITHUB_OUTPUT
+#           echo "✅ Infrastructure deployed successfully to production"
+#           echo "deployment_status=success" >> $GITHUB_OUTPUT
 
-      # ================================================================
-      # Verify deployment
-      # ================================================================
-      - name: Verify infrastructure deployment
-        working-directory: ./infrastructure
-        run: |
-          echo "🔍 Verifying infrastructure deployment..."
+#       # ================================================================
+#       # Verify deployment
+#       # ================================================================
+#       - name: Verify infrastructure deployment
+#         working-directory: ./infrastructure
+#         run: |
+#           echo "🔍 Verifying infrastructure deployment..."
 
-          # Run verification script if it exists
-          if [ -f "verify.sh" ]; then
-            bash verify.sh
-          else
-            echo "No verification script found, skipping..."
-          fi
+#           # Run verification script if it exists
+#           if [ -f "verify.sh" ]; then
+#             bash verify.sh
+#           else
+#             echo "No verification script found, skipping..."
+#           fi
 
-          echo "✅ Verification complete"
+#           echo "✅ Verification complete"
 
-      # ================================================================
-      # Upload deployment artifacts
-      # ================================================================
-      - name: Upload deployment artifacts
-        if: always()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: production-deployment-${{ github.run_number }}
-          path: |
-            infrastructure/cdktf.out/**/*.tf.json
-            infrastructure/cdktf.out/**/plan
-            infrastructure/plan-output.txt
-          retention-days: 90 # Keep production artifacts longer
+#       # ================================================================
+#       # Upload deployment artifacts
+#       # ================================================================
+#       - name: Upload deployment artifacts
+#         if: always()
+#         uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+#         with:
+#           name: production-deployment-${{ github.run_number }}
+#           path: |
+#             infrastructure/cdktf.out/**/*.tf.json
+#             infrastructure/cdktf.out/**/plan
+#             infrastructure/plan-output.txt
+#           retention-days: 90 # Keep production artifacts longer
 
-      # ================================================================
-      # Create deployment record
-      # ================================================================
-      - name: Record deployment details
-        if: success()
-        run: |
-          cat > deployment-record.json << EOF
-          {
-            "environment": "production",
-            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "commit_sha": "${{ github.sha }}",
-            "triggered_by": "${{ github.actor }}",
-            "reason": "${{ github.event.inputs.deployment_reason }}",
-            "workflow_run": "${{ github.run_id }}",
-            "workflow_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-          EOF
+#       # ================================================================
+#       # Create deployment record
+#       # ================================================================
+#       - name: Record deployment details
+#         if: success()
+#         run: |
+#           cat > deployment-record.json << EOF
+#           {
+#             "environment": "production",
+#             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+#             "commit_sha": "${{ github.sha }}",
+#             "triggered_by": "${{ github.actor }}",
+#             "reason": "${{ github.event.inputs.deployment_reason }}",
+#             "workflow_run": "${{ github.run_id }}",
+#             "workflow_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+#           }
+#           EOF
 
-          cat deployment-record.json
+#           cat deployment-record.json
 
-      - name: Upload deployment record
-        if: success()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: deployment-record-${{ github.run_number }}
-          path: deployment-record.json
-          retention-days: 365 # Keep production deployment records for 1 year
+#       - name: Upload deployment record
+#         if: success()
+#         uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+#         with:
+#           name: deployment-record-${{ github.run_number }}
+#           path: deployment-record.json
+#           retention-days: 365 # Keep production deployment records for 1 year
 
-      # ================================================================
-      # Notify on failure
-      # ================================================================
-      - name: Notify on deployment failure
-        if: failure()
-        run: |
-          echo "❌ PRODUCTION DEPLOYMENT FAILED!"
-          echo "This is a CRITICAL failure that requires immediate attention."
-          echo "Commit: ${{ github.sha }}"
-          echo "Triggered by: ${{ github.actor }}"
-          echo "Reason: ${{ github.event.inputs.deployment_reason }}"
-          echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo ""
-          echo "Recommended actions:"
-          echo "1. Review the workflow logs immediately"
-          echo "2. Check the Terraform state in GCS"
-          echo "3. Consider rolling back if necessary"
-          echo "4. Contact the infrastructure team"
+#       # ================================================================
+#       # Notify on failure
+#       # ================================================================
+#       - name: Notify on deployment failure
+#         if: failure()
+#         run: |
+#           echo "❌ PRODUCTION DEPLOYMENT FAILED!"
+#           echo "This is a CRITICAL failure that requires immediate attention."
+#           echo "Commit: ${{ github.sha }}"
+#           echo "Triggered by: ${{ github.actor }}"
+#           echo "Reason: ${{ github.event.inputs.deployment_reason }}"
+#           echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+#           echo ""
+#           echo "Recommended actions:"
+#           echo "1. Review the workflow logs immediately"
+#           echo "2. Check the Terraform state in GCS"
+#           echo "3. Consider rolling back if necessary"
+#           echo "4. Contact the infrastructure team"
 
-  # ============================================================================
-  # Post-deployment: Notify success
-  # ============================================================================
-  notify-success:
-    name: Notify Deployment Success
-    runs-on: ubuntu-latest
-    needs: deploy-production
-    if: success()
+#   # ============================================================================
+#   # Post-deployment: Notify success
+#   # ============================================================================
+#   notify-success:
+#     name: Notify Deployment Success
+#     runs-on: ubuntu-latest
+#     needs: deploy-production
+#     if: success()
 
-    steps:
-      - name: Deployment summary
-        run: |
-          echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** ${{ github.event.inputs.deployment_reason }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
-          echo "- Storage Stack (GCS buckets)" >> $GITHUB_STEP_SUMMARY
-          echo "- Functions Stack (Cloud Functions)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Production URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- Primary: https://dcmco.com.au" >> $GITHUB_STEP_SUMMARY
-          echo "- Alternate: https://www.dcmco.com.au" >> $GITHUB_STEP_SUMMARY
-          echo "- Firebase: https://dcmco-prod-2026.web.app" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "- Monitor production metrics and logs" >> $GITHUB_STEP_SUMMARY
-          echo "- Verify all services are functioning correctly" >> $GITHUB_STEP_SUMMARY
-          echo "- Update documentation if infrastructure changed" >> $GITHUB_STEP_SUMMARY
+#     steps:
+#       - name: Deployment summary
+#         run: |
+#           echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+#           echo "" >> $GITHUB_STEP_SUMMARY
+#           echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
+#           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+#           echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+#           echo "**Reason:** ${{ github.event.inputs.deployment_reason }}" >> $GITHUB_STEP_SUMMARY
+#           echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+#           echo "" >> $GITHUB_STEP_SUMMARY
+#           echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
+#           echo "- Storage Stack (GCS buckets)" >> $GITHUB_STEP_SUMMARY
+#           echo "- Functions Stack (Cloud Functions)" >> $GITHUB_STEP_SUMMARY
+#           echo "" >> $GITHUB_STEP_SUMMARY
+#           echo "### Production URLs" >> $GITHUB_STEP_SUMMARY
+#           echo "- Primary: https://dcmco.com.au" >> $GITHUB_STEP_SUMMARY
+#           echo "- Alternate: https://www.dcmco.com.au" >> $GITHUB_STEP_SUMMARY
+#           echo "- Firebase: https://dcmco-prod-2026.web.app" >> $GITHUB_STEP_SUMMARY
+#           echo "" >> $GITHUB_STEP_SUMMARY
+#           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+#           echo "- Monitor production metrics and logs" >> $GITHUB_STEP_SUMMARY
+#           echo "- Verify all services are functioning correctly" >> $GITHUB_STEP_SUMMARY
+#           echo "- Update documentation if infrastructure changed" >> $GITHUB_STEP_SUMMARY
 
-      - name: Post-deployment checklist
-        run: |
-          echo "## 📋 Post-Deployment Checklist" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Verify website is accessible at https://dcmco.com.au" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Test contact form functionality" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Check Cloud Functions logs for errors" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Verify SendGrid integration is working" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Monitor error rates and latency" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Update team about the deployment" >> $GITHUB_STEP_SUMMARY
+#       - name: Post-deployment checklist
+#         run: |
+#           echo "## 📋 Post-Deployment Checklist" >> $GITHUB_STEP_SUMMARY
+#           echo "" >> $GITHUB_STEP_SUMMARY
+#           echo "- [ ] Verify website is accessible at https://dcmco.com.au" >> $GITHUB_STEP_SUMMARY
+#           echo "- [ ] Test contact form functionality" >> $GITHUB_STEP_SUMMARY
+#           echo "- [ ] Check Cloud Functions logs for errors" >> $GITHUB_STEP_SUMMARY
+#           echo "- [ ] Verify SendGrid integration is working" >> $GITHUB_STEP_SUMMARY
+#           echo "- [ ] Monitor error rates and latency" >> $GITHUB_STEP_SUMMARY
+#           echo "- [ ] Update team about the deployment" >> $GITHUB_STEP_SUMMARY

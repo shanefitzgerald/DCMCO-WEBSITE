@@ -1,202 +1,202 @@
-name: Deploy Cloud Functions (Production)
+# name: Deploy Cloud Functions (Production)
 
-on:
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type "deploy" to confirm production deployment'
-        required: true
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       confirm:
+#         description: 'Type "deploy" to confirm production deployment'
+#         required: true
 
-env:
-  NODE_VERSION: '20'
-  GCP_PROJECT_ID: 'dcmco-prod-2026'
-  GCP_REGION: 'australia-southeast1'
-  ENVIRONMENT: 'production'
-  FUNCTION_NAME: 'dcmco-website-production-contact-form'
+# env:
+#   NODE_VERSION: '20'
+#   GCP_PROJECT_ID: 'dcmco-prod-2026'
+#   GCP_REGION: 'australia-southeast1'
+#   ENVIRONMENT: 'production'
+#   FUNCTION_NAME: 'dcmco-website-production-contact-form'
 
-jobs:
-  # ================================================================
-  # Confirmation step for manual deploys
-  # ================================================================
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate confirmation
-        run: |
-          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
-            echo "❌ Deployment cancelled"
-            echo "To deploy to production, type 'deploy' in the confirmation input"
-            exit 1
-          fi
-          echo "✅ Production deployment confirmed"
+# jobs:
+#   # ================================================================
+#   # Confirmation step for manual deploys
+#   # ================================================================
+#   validate:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Validate confirmation
+#         run: |
+#           if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+#             echo "❌ Deployment cancelled"
+#             echo "To deploy to production, type 'deploy' in the confirmation input"
+#             exit 1
+#           fi
+#           echo "✅ Production deployment confirmed"
 
-  # ================================================================
-  # Deploy Cloud Functions to Production
-  # ================================================================
-  deploy-functions:
-    needs: [validate]
-    runs-on: ubuntu-latest
+#   # ================================================================
+#   # Deploy Cloud Functions to Production
+#   # ================================================================
+#   deploy-functions:
+#     needs: [validate]
+#     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      id-token: write
-      pull-requests: write
+#     permissions:
+#       contents: read
+#       id-token: write
+#       pull-requests: write
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      # ================================================================
-      # Authenticate with GCP
-      # ================================================================
+#       # ================================================================
+#       # Authenticate with GCP
+#       # ================================================================
 
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+#       - name: Authenticate to Google Cloud
+#         id: auth
+#         uses: google-github-actions/auth@v2
+#         with:
+#           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      # ================================================================
-      # Build and Deploy Function (IaC)
-      # ================================================================
+#       # ================================================================
+#       # Build and Deploy Function (IaC)
+#       # ================================================================
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Build Cloud Function
-        working-directory: ./functions/contact-form
-        run: |
-          npm install
-          npm run build
+#       - name: Build Cloud Function
+#         working-directory: ./functions/contact-form
+#         run: |
+#           npm install
+#           npm run build
 
-      - name: Ensure SendGrid secret exists in Secret Manager
-        env:
-          SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
-        run: |
-          SECRET_ID="dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key"
+#       - name: Ensure SendGrid secret exists in Secret Manager
+#         env:
+#           SENDGRID_KEY: ${{ secrets.SENDGRID_API_KEY_PRODUCTION }}
+#         run: |
+#           SECRET_ID="dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key"
 
-          # Check if secret exists
-          if ! gcloud secrets describe $SECRET_ID --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
-            echo "Creating secret $SECRET_ID"
-            gcloud secrets create $SECRET_ID --project=${{ env.GCP_PROJECT_ID }}
-          fi
+#           # Check if secret exists
+#           if ! gcloud secrets describe $SECRET_ID --project=${{ env.GCP_PROJECT_ID }} 2>/dev/null; then
+#             echo "Creating secret $SECRET_ID"
+#             gcloud secrets create $SECRET_ID --project=${{ env.GCP_PROJECT_ID }}
+#           fi
 
-          # Add/update secret version
-          echo -n "${SENDGRID_KEY}" | gcloud secrets versions add $SECRET_ID \
-            --project=${{ env.GCP_PROJECT_ID }} \
-            --data-file=-
+#           # Add/update secret version
+#           echo -n "${SENDGRID_KEY}" | gcloud secrets versions add $SECRET_ID \
+#             --project=${{ env.GCP_PROJECT_ID }} \
+#             --data-file=-
 
-      - name: Deploy function with configuration
-        uses: google-github-actions/deploy-cloud-functions@v3
-        with:
-          name: ${{ env.FUNCTION_NAME }}
-          runtime: nodejs20
-          region: ${{ env.GCP_REGION }}
-          entry_point: contactForm
-          source_dir: ./functions/contact-form
-          memory: 256Mi
-          timeout: 60s
-          min_instance_count: 0
-          max_instance_count: 10
-          ingress_settings: ALLOW_ALL
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          environment_variables: |-
-            NODE_ENV=${{ env.ENVIRONMENT }}
-            EMAIL_RECIPIENT=shanesrf@gmail.com
-            FROM_EMAIL=shanesrf@gmail.com
-            ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
-          secrets: |-
-            SENDGRID_API_KEY=projects/${{ env.GCP_PROJECT_ID }}/secrets/dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key/versions/latest
+#       - name: Deploy function with configuration
+#         uses: google-github-actions/deploy-cloud-functions@v3
+#         with:
+#           name: ${{ env.FUNCTION_NAME }}
+#           runtime: nodejs20
+#           region: ${{ env.GCP_REGION }}
+#           entry_point: contactForm
+#           source_dir: ./functions/contact-form
+#           memory: 256Mi
+#           timeout: 60s
+#           min_instance_count: 0
+#           max_instance_count: 10
+#           ingress_settings: ALLOW_ALL
+#           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+#           environment_variables: |-
+#             NODE_ENV=${{ env.ENVIRONMENT }}
+#             EMAIL_RECIPIENT=shanesrf@gmail.com
+#             FROM_EMAIL=shanesrf@gmail.com
+#             ALLOWED_ORIGINS=https://dcmco-prod-2026.web.app,https://dcmco.com.au,https://www.dcmco.com.au
+#           secrets: |-
+#             SENDGRID_API_KEY=projects/${{ env.GCP_PROJECT_ID }}/secrets/dcmco-website-${{ env.ENVIRONMENT }}-sendgrid-api-key/versions/latest
 
-      # ================================================================
-      # Test Deployed Function
-      # ================================================================
+#       # ================================================================
+#       # Test Deployed Function
+#       # ================================================================
 
-      - name: Extract function URL
-        id: function-url
-        run: |
-          URL=$(gcloud functions describe ${{ env.FUNCTION_NAME }} \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.GCP_PROJECT_ID }} \
-            --format="value(serviceConfig.uri)")
+#       - name: Extract function URL
+#         id: function-url
+#         run: |
+#           URL=$(gcloud functions describe ${{ env.FUNCTION_NAME }} \
+#             --region=${{ env.GCP_REGION }} \
+#             --project=${{ env.GCP_PROJECT_ID }} \
+#             --format="value(serviceConfig.uri)")
 
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Function deployed to: $URL"
+#           echo "url=$URL" >> $GITHUB_OUTPUT
+#           echo "Function deployed to: $URL"
 
-      - name: Wait for function to be ready
-        run: |
-          echo "Waiting 30 seconds for function to be fully ready..."
-          sleep 30
+#       - name: Wait for function to be ready
+#         run: |
+#           echo "Waiting 30 seconds for function to be fully ready..."
+#           sleep 30
 
-      - name: Run deployment tests
-        run: |
-          bash infrastructure/scripts/test-deployed-function.sh \
-            "${{ steps.function-url.outputs.url }}" \
-            "https://dcmco-prod-2026.web.app"
+#       - name: Run deployment tests
+#         run: |
+#           bash infrastructure/scripts/test-deployed-function.sh \
+#             "${{ steps.function-url.outputs.url }}" \
+#             "https://dcmco-prod-2026.web.app"
 
-      # ================================================================
-      # Save Outputs
-      # ================================================================
+#       # ================================================================
+#       # Save Outputs
+#       # ================================================================
 
-      - name: Save function URL
-        run: |
-          mkdir -p .github/outputs
-          echo "${{ steps.function-url.outputs.url }}" > .github/outputs/production-function-url.txt
-          echo "Function URL saved to .github/outputs/production-function-url.txt"
+#       - name: Save function URL
+#         run: |
+#           mkdir -p .github/outputs
+#           echo "${{ steps.function-url.outputs.url }}" > .github/outputs/production-function-url.txt
+#           echo "Function URL saved to .github/outputs/production-function-url.txt"
 
-      - name: Create commit comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const url = '${{ steps.function-url.outputs.url }}';
-            const sha = context.sha.substring(0, 7);
+#       - name: Create commit comment
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             const url = '${{ steps.function-url.outputs.url }}';
+#             const sha = context.sha.substring(0, 7);
 
-            const message = `### ✅ Cloud Functions Deployed (Production)
+#             const message = `### ✅ Cloud Functions Deployed (Production)
 
-            **Function URL:** \`${url}\`
+#             **Function URL:** \`${url}\`
 
-            **Environment:** production
-            **Region:** ${{ env.GCP_REGION }}
-            **Commit:** ${sha}
+#             **Environment:** production
+#             **Region:** ${{ env.GCP_REGION }}
+#             **Commit:** ${sha}
 
-            **Deployment:**
-            - ✅ Function deployed with full Infrastructure as Code configuration
-            - ✅ Environment variables and secrets managed declaratively
-            - ✅ Tests passed
+#             **Deployment:**
+#             - ✅ Function deployed with full Infrastructure as Code configuration
+#             - ✅ Environment variables and secrets managed declaratively
+#             - ✅ Tests passed
 
-            **⚠️ Important:**
-            - Update Next.js production environment variable with function URL
-            - Verify email delivery in [SendGrid Activity](https://app.sendgrid.com/email_activity)
-            - Test from production frontend
-            - Monitor function logs for any errors
+#             **⚠️ Important:**
+#             - Update Next.js production environment variable with function URL
+#             - Verify email delivery in [SendGrid Activity](https://app.sendgrid.com/email_activity)
+#             - Test from production frontend
+#             - Monitor function logs for any errors
 
-            **Test manually:**
-            \`\`\`bash
-            curl -X POST "${url}" \\
-              -H "Content-Type: application/json" \\
-              -H "Origin: https://dcmco-prod-2026.web.app" \\
-              -d '{"name":"Test","email":"test@example.com","message":"Test from production function"}'
-            \`\`\`
+#             **Test manually:**
+#             \`\`\`bash
+#             curl -X POST "${url}" \\
+#               -H "Content-Type: application/json" \\
+#               -H "Origin: https://dcmco-prod-2026.web.app" \\
+#               -d '{"name":"Test","email":"test@example.com","message":"Test from production function"}'
+#             \`\`\`
 
-            **Monitor:**
-            \`\`\`bash
-            gcloud functions logs read ${{ env.FUNCTION_NAME }} --region=${{ env.GCP_REGION }} --limit=50
-            \`\`\`
-            `;
+#             **Monitor:**
+#             \`\`\`bash
+#             gcloud functions logs read ${{ env.FUNCTION_NAME }} --region=${{ env.GCP_REGION }} --limit=50
+#             \`\`\`
+#             `;
 
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: message
-            });
+#             github.rest.repos.createCommitComment({
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               commit_sha: context.sha,
+#               body: message
+#             });
 
-      - name: Upload outputs as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: function-outputs-production
-          path: .github/outputs/
-          retention-days: 90
+#       - name: Upload outputs as artifact
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: function-outputs-production
+#           path: .github/outputs/
+#           retention-days: 90
