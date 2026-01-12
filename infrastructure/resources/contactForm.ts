@@ -99,16 +99,16 @@ export function createContactFormInfrastructure(dependencies: {
   // ============================================================================
   // 4. Function Source Archive
   // ============================================================================
-  // Upload a placeholder archive (will be replaced by actual function code)
-  // TODO: Replace with actual contact form function source code
+  // Upload the contact form function source code
+  // Build the function first: cd functions/contact-form && pnpm run package
+  const functionSourcePath = "../functions/contact-form/function-source.zip";
+
   const sourceArchive = new gcp.storage.BucketObject(
     getResourceName("contact-form-source"),
     {
       name: `contact-form-${config.environment}-source.zip`,
       bucket: sourceBucket.name,
-      // Placeholder content - replace with actual function archive
-      // In practice, you would build and upload the function code here
-      source: new pulumi.asset.StringAsset("placeholder"),
+      source: new pulumi.asset.FileArchive(functionSourcePath),
       contentType: "application/zip",
     },
     {

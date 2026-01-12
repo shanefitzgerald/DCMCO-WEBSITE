@@ -1,0 +1,32 @@
+{
+  "name": "contact-form-function",
+  "version": "1.0.0",
+  "description": "Cloud Function for handling contact form submissions via SendGrid",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "package": "npm run clean && npm run build && cd dist && zip -r ../function-source.zip .",
+    "test": "echo \"No tests yet\""
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.0",
+    "@google-cloud/functions-framework": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "cloud-function",
+    "contact-form",
+    "sendgrid",
+    "email"
+  ],
+  "author": "DCMCO",
+  "license": "MIT"
+}
