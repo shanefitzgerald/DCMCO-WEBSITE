@@ -34,9 +34,11 @@ export function createFirebaseHosting(
   });
 
   // Create Firebase Hosting Site
+  // Note: siteId uses environment name directly for backward compatibility
+  // The existing site was created as "dcmco-staging" not "dcmco-staging-site"
   const hostingSite = new gcp.firebase.HostingSite(getResourceName("site"), {
     project: projectId,
-    siteId: getResourceName("site"),
+    siteId: `dcmco-${environment}`,
     appId: webApp.appId,
   }, {
     dependsOn: [dependencies.firebaseHostingApi],

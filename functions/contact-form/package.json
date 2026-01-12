@@ -7,7 +7,7 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
-    "package": "npm run clean && npm run build && cd dist && zip -r ../function-source.zip .",
+    "package": "rm -f function-source.zip && zip -r function-source.zip src/ package.json tsconfig.json package-lock.json -x '*.swp' -x '*.swo'",
     "test": "echo \"No tests yet\""
   },
   "engines": {

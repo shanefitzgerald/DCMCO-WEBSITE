@@ -136,6 +136,7 @@ export function createContactFormInfrastructure(dependencies: {
           storageSource: {
             bucket: sourceBucket.name,
             object: sourceArchive.name,
+            generation: sourceArchive.generation, // Track source version for automatic rebuilds
           },
         },
         // Environment variables available during build
@@ -218,11 +219,9 @@ export function createContactFormInfrastructure(dependencies: {
   // ============================================================================
   // Extract Function URL
   // ============================================================================
-  // The function URL is available after deployment
+  // The function URL is available after deployment via the `url` property
   // Format: https://{region}-{project}.cloudfunctions.net/{function-name}
-  const functionUrl = cloudFunction.serviceConfig.apply(
-    (config) => config?.uri || ""
-  );
+  const functionUrl = cloudFunction.url;
 
   return {
     serviceAccount,

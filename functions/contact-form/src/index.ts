@@ -1,5 +1,5 @@
 import { HttpFunction } from "@google-cloud/functions-framework";
-import * as sgMail from "@sendgrid/mail";
+import sgMail from "@sendgrid/mail";
 
 /**
  * Contact Form Data Structure
