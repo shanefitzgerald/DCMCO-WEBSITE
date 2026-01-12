@@ -8,7 +8,7 @@
     "dcmco-prod-2026": {
       "hosting": {
         "production": [
-          "dcmco-prod-2026"
+          "dcmco-production"
         ],
         "staging": [
           "dcmco-staging"
