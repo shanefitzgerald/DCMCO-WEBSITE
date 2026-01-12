@@ -1,3 +1,10 @@
 config:
   gcp:project: dcmco-prod-2026
   gcp:region: australia-southeast1
+  dcmco-website:environment: staging
+  dcmco-website:bucketName: dcmco-staging-bucket
+  dcmco-website:allowedOrigins: https://staging.dcmco.com.au
+  dcmco-website:emailFrom: noreply@staging.dcmco.com.au
+  dcmco-website:emailReplyTo: hello@dcmco.com.au
+  dcmco-website:sendgridApiKey:
+    secure: AAABACEsv+msbDweVBkMfVDKtgGv7ZmbnOO8v0tYdHd3SYjLMoNhF6dbWAqdZY9ui8sg0y8BoVOzmmJIZtECXB/MV3/PwIm3sUWl6hw/RBXCHBq/EnKNHsE3HWJygLy1Vmq/UcU=
