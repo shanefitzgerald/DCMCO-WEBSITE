@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import { getConfig } from "./config";
-import { enableApis, createFirebaseHosting } from "./resources";
+import { enableApis, createFirebaseHosting, createContactFormInfrastructure } from "./resources";
 
 // ============================================================================
 // Configuration
@@ -72,30 +72,15 @@ const firebase = createFirebaseHosting(
 // });
 
 // ============================================================================
-// Cloud Functions
+// Cloud Functions - Contact Form
 // ============================================================================
-// TODO: Add Cloud Functions when needed
-// Example:
-// import { createCloudFunction, makeCloudFunctionPublic } from "./resources";
-//
-// const contactFormFunction = createCloudFunction({
-//   projectId: config.projectId,
-//   region: config.region,
-//   name: "contact-form",
-//   description: "Contact form handler",
-//   runtime: "nodejs20",
-//   entryPoint: "handleContactForm",
-//   sourceBucket: functionSourceBucket,
-//   sourceObject: functionSource,
-//   environmentVariables: {
-//     EMAIL_FROM: appConfig.require("emailFrom"),
-//     EMAIL_REPLY_TO: appConfig.require("emailReplyTo"),
-//   },
-//   allowedOrigins: appConfig.require("allowedOrigins").split(","),
-//   dependencies: [apis.cloudFunctionsApi, apis.cloudBuildApi],
-// });
-//
-// makeCloudFunctionPublic(contactFormFunction);
+
+const contactForm = createContactFormInfrastructure({
+  cloudFunctionsApi: apis.cloudFunctionsApi,
+  cloudBuildApi: apis.cloudBuildApi,
+  storageApi: apis.storageApi,
+  secretManagerApi: apis.secretManagerApi,
+});
 
 // ============================================================================
 // Stack Exports
@@ -113,7 +98,13 @@ export const firebaseSiteName = firebase.hostingSite.name;
 export const firebaseDefaultUrl = pulumi.interpolate`https://${firebase.hostingSite.siteId}.web.app`;
 export const firebaseAppId = firebase.webApp.appId;
 
+// Contact Form exports
+export const contactFormFunctionUrl = contactForm.functionUrl;
+export const contactFormFunctionName = contactForm.cloudFunction.name;
+export const contactFormServiceAccount = contactForm.serviceAccount.email;
+export const contactFormSecretId = contactForm.secret.secretId;
+export const contactFormBucket = contactForm.sourceBucket.name;
+
 // Additional exports can be added here as resources are created
 // Example:
-// export const functionUrl = contactFormFunction.serviceConfig.uri;
 // export const bucketName = mainBucket.name;

@@ -11,3 +11,4 @@ export * from "./storage";
 export * from "./functions";
 export * from "./secrets";
 export * from "./iam";
+export * from "./contactForm";

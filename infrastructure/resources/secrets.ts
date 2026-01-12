@@ -56,13 +56,17 @@ export function createSecret(options: SecretOptions): {
  * Grant a service account access to a secret
  * @param secret - The Secret Manager secret
  * @param serviceAccountEmail - Service account email to grant access
+ * @param resourceName - Optional custom resource name
  * @returns IAM member binding
  */
 export function grantSecretAccess(
   secret: gcp.secretmanager.Secret,
-  serviceAccountEmail: pulumi.Input<string>
+  serviceAccountEmail: pulumi.Input<string>,
+  resourceName?: string
 ): gcp.secretmanager.SecretIamMember {
-  return new gcp.secretmanager.SecretIamMember(`${secret.secretId}-accessor`, {
+  const finalResourceName = resourceName || getResourceName("secret-accessor");
+
+  return new gcp.secretmanager.SecretIamMember(finalResourceName, {
     secretId: secret.id,
     role: "roles/secretmanager.secretAccessor",
     member: pulumi.interpolate`serviceAccount:${serviceAccountEmail}`,

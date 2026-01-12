@@ -37,15 +37,19 @@ export function createServiceAccount(options: ServiceAccountOptions): gcp.servic
  * @param serviceAccount - The service account
  * @param projectId - GCP project ID
  * @param role - IAM role to grant
+ * @param resourceName - Optional custom resource name
  * @returns IAM member binding
  */
 export function grantProjectRole(
   serviceAccount: gcp.serviceaccount.Account,
   projectId: string,
-  role: string
+  role: string,
+  resourceName?: string
 ): gcp.projects.IAMMember {
   const roleName = role.replace(/[^a-zA-Z0-9]/g, "-");
-  return new gcp.projects.IAMMember(`${serviceAccount.accountId}-${roleName}`, {
+  const finalResourceName = resourceName || getResourceName(`sa-${roleName}`);
+
+  return new gcp.projects.IAMMember(finalResourceName, {
     project: projectId,
     role: role,
     member: serviceAccount.email.apply(email => `serviceAccount:${email}`),
