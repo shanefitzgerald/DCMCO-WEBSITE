@@ -1,7 +1,5 @@
 # Pulumi
 .pulumi/
-Pulumi.*.yaml
-*.pulumi.yaml
 
 # Node
 node_modules/
@@ -29,6 +27,7 @@ yarn.lock
 # Build
 dist/
 build/
+bin/
 *.tsbuildinfo
 
 # Logs

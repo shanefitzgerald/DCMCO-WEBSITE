@@ -1,7 +1,8 @@
 {
-  "name": "dcmco-infrastructure",
+  "name": "dcmco-website",
   "version": "1.0.0",
-  "description": "DCMCO Website Infrastructure as Code using Pulumi",
+  "description": "DCMCO website infrastructure",
+  "main": "index.ts",
   "private": true,
   "scripts": {
     "build": "tsc",
@@ -18,6 +19,10 @@
     "@types/node": "^20.11.5",
     "typescript": "^5.3.3"
   },
+  "dependencies": {
+    "@pulumi/gcp": "^9.9.0",
+    "@pulumi/pulumi": "^3.215.0"
+  },
   "keywords": [
     "pulumi",
     "infrastructure",
@@ -26,9 +31,5 @@
     "google-cloud"
   ],
   "author": "DCM CO",
-  "license": "MIT",
-  "dependencies": {
-    "@pulumi/gcp": "^9.9.0",
-    "@pulumi/pulumi": "^3.215.0"
-  }
+  "license": "MIT"
 }
