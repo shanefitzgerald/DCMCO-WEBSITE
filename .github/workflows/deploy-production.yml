@@ -144,7 +144,7 @@ jobs:
           echo "| Environment | **🔴 PRODUCTION** |" >> $GITHUB_STEP_SUMMARY
           echo "| Firebase Project | \`dcmco-prod-2026\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Target | \`production\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Site | \`dcmco-prod-2026\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Site | \`dcmco-production\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Workflow Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -164,7 +164,7 @@ jobs:
 
           # Links Section
           echo "### 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
-          echo "- 🌐 [**Production Website**](https://dcmco-prod-2026.web.app)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 [**Production Website**](https://dcmco-production.web.app)" >> $GITHUB_STEP_SUMMARY
           echo "- 🌐 [Firebase Console](https://console.firebase.google.com/project/dcmco-prod-2026/hosting)" >> $GITHUB_STEP_SUMMARY
           echo "- 📝 [Commit Details](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
           echo "- 🔄 [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY

@@ -1,49 +1,32 @@
 {
-  "name": "dcmco-infrastructure",
+  "name": "dcmco-website",
   "version": "1.0.0",
-  "description": "DCMCO Website Infrastructure as Code using CDKTF",
+  "description": "DCMCO website infrastructure",
+  "main": "index.ts",
   "private": true,
   "scripts": {
-    "get": "cdktf get",
     "build": "tsc",
-    "synth": "cdktf synth",
     "compile": "tsc --pretty",
     "watch": "tsc -w",
     "test": "echo \"No tests yet\"",
-    "deploy": "cdktf deploy",
-    "deploy:auto": "cdktf deploy --auto-approve",
-    "destroy": "cdktf destroy",
-    "destroy:auto": "cdktf destroy --auto-approve",
-    "plan": "cdktf plan",
-    "diff": "cdktf diff",
-    "upgrade": "npm i cdktf@latest cdktf-cli@latest",
-    "upgrade:next": "npm i cdktf@next cdktf-cli@next",
     "typecheck": "tsc --noEmit",
-    "typecheck:watch": "tsc --noEmit --watch",
-    "lint": "tsc --noEmit && echo 'TypeScript compilation successful'",
-    "verify": "bash verify.sh",
-    "validate": "pnpm run typecheck && pnpm run synth",
-    "presynth": "pnpm run typecheck",
-    "predeploy": "pnpm run validate",
-    "check": "pnpm run typecheck && pnpm run diff"
+    "typecheck:watch": "tsc --noEmit --watch"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
-    "cdktf": "^0.20.0",
-    "constructs": "^10.3.0",
-    "dotenv": "^16.4.1"
-  },
   "devDependencies": {
     "@types/node": "^20.11.5",
-    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
+  "dependencies": {
+    "@pulumi/gcp": "^9.9.0",
+    "@pulumi/pulumi": "^3.215.0"
+  },
   "keywords": [
-    "cdktf",
-    "terraform",
+    "pulumi",
     "infrastructure",
+    "iac",
     "gcp",
     "google-cloud"
   ],

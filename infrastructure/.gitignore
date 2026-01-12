@@ -1,23 +1,5 @@
-# CDKTF
-cdktf.out/
-.gen/
-imports/
-*.js
-*.d.ts
-
-# Terraform
-.terraform/
-.terraform.lock.hcl
-*.tfstate
-*.tfstate.*
-*.tfstate.backup
-terraform.tfstate.d/
-crash.log
-crash.*.log
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
+# Pulumi
+.pulumi/
 
 # Node
 node_modules/
@@ -45,6 +27,7 @@ yarn.lock
 # Build
 dist/
 build/
+bin/
 *.tsbuildinfo
 
 # Logs
