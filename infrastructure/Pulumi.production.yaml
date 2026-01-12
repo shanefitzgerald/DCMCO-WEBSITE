@@ -1,3 +1,10 @@
 config:
   gcp:project: dcmco-prod-2026
   gcp:region: australia-southeast1
+  dcmco-website:environment: production
+  dcmco-website:bucketName: dcmco-production-bucket
+  dcmco-website:allowedOrigins: https://dcmco.com.au,https://www.dcmco.com.au
+  dcmco-website:emailFrom: noreply@dcmco.com.au
+  dcmco-website:emailReplyTo: hello@dcmco.com.au
+  dcmco-website:sendgridApiKey:
+    secure: AAABANfMhpWerSBmdCJmxOiZjnkCAQLkeqiwBaA7yxEjw6EhZC2T/uYD1CXZMExwxl9+ObmmoH5txwOgpXJXEVZ/VSxY0hNPYuxYGwsH1czVW+MHAOGhLH3dO9Mcvprc/KOVHWM=
