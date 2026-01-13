@@ -10,6 +10,9 @@ The official marketing website for DCM CO, a leading AI consultancy specializing
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [@dcmco/design-system](https://github.com/dcmco/design-system) (Stitches-based)
 - **Hosting**: Firebase Hosting (with automatic SSL and global CDN)
+- **Infrastructure**: [Pulumi](https://www.pulumi.com/) (TypeScript-based IaC)
+- **Backend**: Google Cloud Functions Gen 2 (Node.js 20)
+- **Email**: SendGrid API
 - **Code Quality**: ESLint + Prettier
 - **Package Manager**: pnpm
 
@@ -99,6 +102,15 @@ dcmco-website/
 │   └── 404.tsx            # Custom 404 page
 ├── public/                # Static assets (images, fonts, etc.)
 ├── styles/                # Global styles
+├── infrastructure/        # Pulumi infrastructure-as-code
+│   ├── index.ts          # Main Pulumi program
+│   ├── config.ts         # Configuration helpers
+│   ├── resources/        # Modular resource definitions
+│   └── Pulumi.*.yaml     # Stack configurations
+├── functions/             # Cloud Functions
+│   └── contact-form/     # Contact form handler
+│       ├── src/          # TypeScript source code
+│       └── package.json  # Function dependencies
 ├── .npmrc.example         # NPM registry configuration template
 ├── .prettierrc            # Prettier configuration
 ├── .eslintrc.json         # ESLint configuration
@@ -143,21 +155,49 @@ This project is automatically deployed to Firebase Hosting via GitHub Actions.
 
 ### Quick Links
 
-- 🌐 **[Live Website](https://dcmco-prod-2026.web.app)** - Production deployment
-- 📖 **[Firebase Hosting Guide](docs/FIREBASE_HOSTING.md)** - Complete configuration and cache strategy
-- 🔄 **[GitHub Actions Setup](docs/FIREBASE_GITHUB_ACTIONS.md)** - Deployment workflows and setup
-- 📊 [Deployment History](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions/workflows/deploy-firebase-staging.yml) - View recent deployments
+- 🌐 **Staging**: [https://staging.dcmco.com.au](https://staging.dcmco.com.au) (Firebase: https://dcmco-staging.web.app)
+- 🌐 **Production**: [https://dcmco.com.au](https://dcmco.com.au) (Firebase: https://dcmco-prod-2026.web.app)
+- 📊 [Deployment History](https://github.com/shanefitzgerald/DCMCO-WEBSITE/actions) - View recent deployments
+- 📦 [Infrastructure Code](infrastructure/) - Pulumi IaC definitions
+
+### Infrastructure Management
+
+This project uses [Pulumi](https://www.pulumi.com/) for infrastructure-as-code. All GCP resources (Firebase Hosting, Cloud Functions, Secret Manager, IAM) are defined in TypeScript.
+
+**Key Resources:**
+- Firebase Hosting sites (staging and production)
+- Contact form Cloud Function (Gen 2)
+- SendGrid integration with Secret Manager
+- Service accounts with minimal permissions
+
+**Common Commands:**
+```bash
+cd infrastructure
+
+# Preview infrastructure changes
+pulumi preview
+
+# Deploy infrastructure updates
+pulumi up
+
+# View current stack outputs
+pulumi stack output
+
+# Switch between stacks
+pulumi stack select staging
+pulumi stack select production
+```
 
 ### Automated Deployments
 
 **Staging Deployment:**
 - Automatically deploys to Firebase Hosting when code is pushed to `main` branch
-- Live at: https://dcmco-staging.web.app/
+- Live at: https://staging.dcmco.com.au (Firebase: https://dcmco-staging.web.app)
 - Includes automatic cache invalidation and CDN distribution
 
 **Production Deployment:**
-- Automatically deploys to Firebase Hosting when code is pushed to `main` branch
-- Live at: https://dcmco-prod-2026.web.app
+- Automatically deploys to Firebase Hosting when code is pushed to `production` branch
+- Live at: https://dcmco.com.au (Firebase: https://dcmco-prod-2026.web.app)
 - Includes automatic cache invalidation and CDN distribution
 
 **Pull Request Previews:**
@@ -231,6 +271,39 @@ Every deployment generates a detailed summary including:
 - 📦 Environment details (project, channel)
 - 🔗 Quick links (live site, Firebase console, commit)
 - ⚡ Performance info (CDN, SSL, caching)
+
+## Contact Form
+
+The contact form is powered by a serverless Cloud Function (Gen 2) that handles form submissions and sends emails via SendGrid.
+
+**Features:**
+- ✅ CORS protection (only allowed origins)
+- ✅ Input validation (required fields, email format, length limits)
+- ✅ Honeypot anti-spam protection
+- ✅ Secure secret management (SendGrid API key in Secret Manager)
+- ✅ Structured error responses
+
+**Function Details:**
+- **Endpoint**: `https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form`
+- **Runtime**: Node.js 20
+- **Memory**: 256MB
+- **Timeout**: 60 seconds
+
+**Local Development:**
+```bash
+cd functions/contact-form
+
+# Install dependencies
+pnpm install
+
+# Build TypeScript
+pnpm run build
+
+# Package for deployment
+pnpm run package
+```
+
+The function automatically rebuilds and deploys when source code changes are detected by Pulumi.
 
 ## Design System
 
@@ -317,8 +390,11 @@ If you see "API Routes cannot be used with output: export":
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [Pulumi Documentation](https://www.pulumi.com/docs/)
 - [DCMCO Design System](https://github.com/dcmco/design-system)
 - [GCP Artifact Registry](https://cloud.google.com/artifact-registry/docs)
+- [Cloud Functions Gen 2](https://cloud.google.com/functions/docs/2nd-gen/overview)
+- [SendGrid API](https://docs.sendgrid.com/)
 
 ## License
 

@@ -1,67 +1,53 @@
 # Contact Form Cloud Function
 
-A Google Cloud Function (Gen 2) that handles contact form submissions and sends emails via SendGrid.
+A serverless Cloud Function (Gen 2) that handles contact form submissions and sends emails via SendGrid.
 
 ## Features
 
-- ✅ **CORS Support** - Configurable allowed origins
-- ✅ **Validation** - Comprehensive input validation
-- ✅ **Anti-Spam** - Honeypot field for bot detection
-- ✅ **Security** - Secret Manager integration for API keys
-- ✅ **Type Safety** - Full TypeScript implementation
-- ✅ **Error Handling** - Graceful error responses
-- ✅ **Logging** - Structured logging for monitoring
-
-## Infrastructure
-
-This function is deployed and managed by Pulumi. See `infrastructure/resources/contactForm.ts` for the infrastructure code.
-
-**Resources:**
-- Cloud Function Gen 2 (Node.js 20)
-- Service Account with minimal permissions
-- Secret Manager secret for SendGrid API key
-- GCS bucket for function source code
-- IAM bindings for public access and secret access
+- ✅ **CORS Protection**: Only accepts requests from allowed origins
+- ✅ **Input Validation**: Validates required fields (name, email, message)
+- ✅ **Email Format Validation**: Ensures valid email addresses
+- ✅ **Length Limits**: Prevents abuse with field length validation
+- ✅ **Honeypot Anti-Spam**: Hidden field to catch bots
+- ✅ **SendGrid Integration**: Sends formatted emails with proper error handling
+- ✅ **Secure Secret Management**: API key stored in Google Secret Manager
+- ✅ **Structured Error Responses**: Clear, user-friendly error messages
 
 ## API
 
 ### Endpoint
 
 ```
-POST https://{region}-{project}.cloudfunctions.net/{function-name}
-```
-
-The actual URL is available after deployment via Pulumi outputs:
-```bash
-pulumi stack output contactFormFunctionUrl
+POST https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form
 ```
 
 ### Request
 
-**Method:** `POST`
-**Content-Type:** `application/json`
+**Headers:**
+- `Content-Type: application/json`
+- `Origin: <allowed-origin>` (required for CORS)
 
 **Body:**
 ```json
 {
   "name": "John Doe",
   "email": "john@example.com",
-  "message": "Hello, I'd like to get in touch!",
-  "phone": "+1234567890",
-  "company": "Acme Inc",
+  "message": "This is my message",
+  "phone": "+61 400 000 000",
+  "company": "Example Corp",
   "honeypot": ""
 }
 ```
 
 **Required Fields:**
-- `name` (string, max 100 chars)
-- `email` (string, valid email, max 255 chars)
-- `message` (string, max 5000 chars)
+- `name` (string, 1-100 chars)
+- `email` (string, valid format, max 255 chars)
+- `message` (string, 1-5000 chars)
 
 **Optional Fields:**
 - `phone` (string, max 50 chars)
 - `company` (string, max 100 chars)
-- `honeypot` (string, must be empty - anti-spam)
+- `honeypot` (string, must be empty - anti-spam field)
 
 ### Response
 
@@ -73,202 +59,226 @@ pulumi stack output contactFormFunctionUrl
 }
 ```
 
-**Error (400):**
+**Validation Error (400):**
 ```json
 {
-  "error": "Email is required"
+  "error": "Email is required, Message is required"
 }
 ```
 
-**Error (403):**
+**CORS Error (403):**
 ```json
 {
   "error": "Origin not allowed"
 }
 ```
 
-**Error (405):**
+**Method Not Allowed (405):**
 ```json
 {
   "error": "Method not allowed"
 }
 ```
 
-**Error (500):**
+**Server Error (500):**
 ```json
 {
   "error": "Failed to send message. Please try again later."
 }
 ```
 
-## Environment Variables
+## Configuration
 
-Configured automatically by Pulumi from stack config:
+The function requires the following environment variables:
 
-- `SENDGRID_API_KEY` - SendGrid API key (from Secret Manager)
-- `EMAIL_FROM` - Sender email address
-- `EMAIL_REPLY_TO` - Reply-to email address
-- `ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
-- `ENVIRONMENT` - Environment name (staging/production)
+- `SENDGRID_API_KEY`: SendGrid API key (from Secret Manager)
+- `EMAIL_FROM`: Sender email address (must be verified in SendGrid)
+- `EMAIL_REPLY_TO`: Reply-to email address
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins
+- `ENVIRONMENT`: Environment name (staging/production)
 
-## Development
+These are configured via Pulumi in [`infrastructure/resources/contactForm.ts`](../../infrastructure/resources/contactForm.ts).
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 20 or higher
+- pnpm (or npm)
 
 ### Install Dependencies
 
 ```bash
-cd functions/contact-form
 pnpm install
 ```
 
 ### Build
 
 ```bash
+# Compile TypeScript
 pnpm run build
+
+# Watch for changes
+pnpm run watch
 ```
 
 ### Package for Deployment
 
 ```bash
+# Create function-source.zip
 pnpm run package
 ```
 
-This creates `function-source.zip` ready for upload to GCS.
+This creates a zip file with the source code that Pulumi uploads to Cloud Storage.
 
-### Watch Mode
+## Testing
+
+### Test with curl
 
 ```bash
-pnpm run watch
+# Successful submission
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://staging.dcmco.com.au" \
+  -d '{
+    "name": "Test User",
+    "email": "test@example.com",
+    "message": "This is a test message"
+  }'
+
+# Test CORS rejection
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://evil.com" \
+  -d '{"name":"Test","email":"test@example.com","message":"Test"}'
+
+# Test validation
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://staging.dcmco.com.au" \
+  -d '{"name":"Test User"}'
+
+# Test honeypot
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://staging.dcmco.com.au" \
+  -d '{"name":"Test","email":"test@example.com","message":"Test","honeypot":"spam"}'
+```
+
+### View Logs
+
+```bash
+# View recent logs
+gcloud functions logs read dcmco-staging-contact-form \
+  --region=australia-southeast1 \
+  --gen2 \
+  --limit=20
+
+# Follow logs in real-time
+gcloud functions logs read dcmco-staging-contact-form \
+  --region=australia-southeast1 \
+  --gen2 \
+  --limit=20 \
+  --follow
 ```
 
 ## Deployment
 
-Deployment is managed by Pulumi. The infrastructure code automatically:
+The function is automatically deployed via Pulumi when changes are detected.
 
-1. Creates the function infrastructure
-2. Uploads a placeholder archive
-3. Configures environment variables from Pulumi config
-4. Sets up IAM permissions
-
-**To deploy:**
+### Manual Deployment
 
 ```bash
-cd infrastructure
-
-# Build the function
-cd ../functions/contact-form
-pnpm install
-pnpm run package
-
-# Upload and deploy via Pulumi
+# From infrastructure directory
 cd ../../infrastructure
+
+# Preview changes
+pulumi preview
+
+# Deploy
 pulumi up
 ```
 
-**To update function code:**
+### Deploy with gcloud
 
-After making changes to the function code:
-
-```bash
-cd functions/contact-form
-pnpm run package
-
-# Upload the new archive to GCS
-gsutil cp function-source.zip gs://$(pulumi stack output contactFormBucket)/
-
-# Redeploy the function
-cd ../../infrastructure
-pulumi up
-```
-
-## Testing
-
-### Local Testing
+If you need to deploy manually:
 
 ```bash
-# Set environment variables
-export SENDGRID_API_KEY="your-api-key"
-export EMAIL_FROM="noreply@example.com"
-export EMAIL_REPLY_TO="hello@example.com"
-export ALLOWED_ORIGINS="http://localhost:3000"
-export ENVIRONMENT="development"
-
-# Run with Functions Framework
-npx functions-framework --target=contactForm --source=dist
+gcloud functions deploy dcmco-staging-contact-form \
+  --gen2 \
+  --region=australia-southeast1 \
+  --runtime=nodejs20 \
+  --source=. \
+  --entry-point=contactForm \
+  --trigger-http \
+  --allow-unauthenticated
 ```
 
-### Test Request
+## Architecture
 
-```bash
-curl -X POST http://localhost:8080 \
-  -H "Content-Type: application/json" \
-  -H "Origin: http://localhost:3000" \
-  -d '{
-    "name": "Test User",
-    "email": "test@example.com",
-    "message": "This is a test message",
-    "honeypot": ""
-  }'
 ```
-
-### Production Testing
-
-```bash
-FUNCTION_URL=$(cd ../../infrastructure && pulumi stack output contactFormFunctionUrl)
-
-curl -X POST "$FUNCTION_URL" \
-  -H "Content-Type: application/json" \
-  -H "Origin: https://dcmco.com.au" \
-  -d '{
-    "name": "Production Test",
-    "email": "test@example.com",
-    "message": "Testing production function",
-    "honeypot": ""
-  }'
+┌─────────────┐
+│   Browser   │
+└──────┬──────┘
+       │ POST /contact-form
+       ▼
+┌─────────────────────┐
+│  Cloud Function     │
+│  (Node.js 20)       │
+│  ┌────────────┐     │
+│  │ CORS Check │     │
+│  └─────┬──────┘     │
+│        ▼            │
+│  ┌────────────┐     │
+│  │ Validate   │     │
+│  │ Input      │     │
+│  └─────┬──────┘     │
+│        ▼            │
+│  ┌────────────┐     │
+│  │ SendGrid   │     │
+│  │ Send Email │     │
+│  └─────┬──────┘     │
+└────────┼────────────┘
+         │
+         ▼
+   ┌──────────┐
+   │ SendGrid │
+   │ API      │
+   └──────────┘
 ```
-
-## Monitoring
-
-View function logs:
-
-```bash
-# Staging
-gcloud functions logs read dcmco-staging-contact-form \
-  --region=australia-southeast1 --gen2
-
-# Production
-gcloud functions logs read dcmco-production-contact-form \
-  --region=australia-southeast1 --gen2
-```
-
-View metrics in Cloud Console:
-- https://console.cloud.google.com/functions/list
 
 ## Security
 
-- **CORS Protection** - Only allows requests from configured origins
-- **Input Validation** - Validates all input fields
-- **Honeypot** - Detects and blocks bot submissions
-- **Secret Manager** - API keys stored securely
-- **Rate Limiting** - Configurable max instances prevent abuse
-- **Service Account** - Minimal permissions (invoker + secret accessor)
+- **CORS**: Only accepts requests from configured origins
+- **Input Validation**: All fields validated for type, format, and length
+- **Honeypot**: Hidden field catches automated bots
+- **Secret Management**: API key stored in Google Secret Manager
+- **Minimal Permissions**: Service account has only required IAM roles
+- **HTTPS Only**: Function enforces HTTPS connections
+- **Rate Limiting**: Cloud Functions provides built-in rate limiting
 
 ## Troubleshooting
 
-### Function not receiving requests
-- Check CORS configuration matches your frontend origin
-- Verify function is publicly accessible (check IAM bindings)
-- Check Cloud Function logs for errors
-
 ### Email not sending
-- Verify SendGrid API key is valid
-- Check SendGrid sender verification
-- Review function logs for SendGrid errors
-- Ensure EMAIL_FROM is verified in SendGrid
 
-### 403 Origin not allowed
-- Add your origin to `allowedOrigins` in Pulumi config
-- Redeploy with `pulumi up`
+1. Check SendGrid logs at https://app.sendgrid.com/
+2. Verify sender email is verified in SendGrid
+3. Check Cloud Function logs for errors
+4. Verify Secret Manager has correct API key
+
+### CORS errors
+
+1. Ensure request includes `Origin` header
+2. Verify origin is in `ALLOWED_ORIGINS` config
+3. Check browser console for specific CORS error
+
+### Function not responding
+
+1. Check function status: `gcloud functions describe dcmco-staging-contact-form --region=australia-southeast1 --gen2`
+2. View logs for errors
+3. Verify function has completed deployment
+4. Check build logs in Cloud Build
 
 ## License
 
-MIT
+MIT License - Copyright (c) 2026 DCM CO
