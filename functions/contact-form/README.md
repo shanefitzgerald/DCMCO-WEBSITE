@@ -1,302 +1,284 @@
-# DCMCO Contact Form Cloud Function
+# Contact Form Cloud Function
 
-Google Cloud Function (Gen 2) for handling contact form submissions from the DCMCO marketing website.
+A serverless Cloud Function (Gen 2) that handles contact form submissions and sends emails via SendGrid.
 
 ## Features
 
-- ✅ TypeScript-based Cloud Function
-- ✅ Form validation using Joi
-- ✅ Email delivery via SendGrid
-- ✅ CORS protection
-- ✅ Comprehensive error handling
-- ✅ Local development support
+- ✅ **CORS Protection**: Only accepts requests from allowed origins
+- ✅ **Input Validation**: Validates required fields (name, email, message)
+- ✅ **Email Format Validation**: Ensures valid email addresses
+- ✅ **Length Limits**: Prevents abuse with field length validation
+- ✅ **Honeypot Anti-Spam**: Hidden field to catch bots
+- ✅ **SendGrid Integration**: Sends formatted emails with proper error handling
+- ✅ **Secure Secret Management**: API key stored in Google Secret Manager
+- ✅ **Structured Error Responses**: Clear, user-friendly error messages
 
-## Prerequisites
+## API
 
-- Node.js 20+
-- npm or pnpm
-- SendGrid account (free tier available)
-
-## Directory Structure
+### Endpoint
 
 ```
-functions/contact-form/
-├── src/
-│   └── index.ts          # Function entry point
-├── dist/                 # Compiled JavaScript (gitignored)
-├── node_modules/         # Dependencies (gitignored)
-├── package.json          # Dependencies and scripts
-├── tsconfig.json         # TypeScript configuration
-├── .env                  # Environment variables (gitignored)
-├── .env.example          # Example environment variables
-├── .gitignore           # Git ignore rules
-└── README.md            # This file
+POST https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form
 ```
 
-## Setup
+### Request
 
-### 1. Install Dependencies
+**Headers:**
+- `Content-Type: application/json`
+- `Origin: <allowed-origin>` (required for CORS)
 
-```bash
-cd functions/contact-form
-npm install
+**Body:**
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "message": "This is my message",
+  "phone": "+61 400 000 000",
+  "company": "Example Corp",
+  "honeypot": ""
+}
 ```
 
-### 2. Configure Environment Variables
+**Required Fields:**
+- `name` (string, 1-100 chars)
+- `email` (string, valid format, max 255 chars)
+- `message` (string, 1-5000 chars)
 
-Copy the example environment file:
+**Optional Fields:**
+- `phone` (string, max 50 chars)
+- `company` (string, max 100 chars)
+- `honeypot` (string, must be empty - anti-spam field)
 
-```bash
-cp .env.example .env
+### Response
+
+**Success (200):**
+```json
+{
+  "success": true,
+  "message": "Your message has been sent successfully. We'll get back to you soon!"
+}
 ```
 
-Edit `.env` and add your SendGrid API key:
-
-```bash
-SENDGRID_API_KEY=SG.your-actual-api-key-here
-CONTACT_EMAIL=contact@dcmco.com.au
-FROM_EMAIL=noreply@dcmco.com.au
+**Validation Error (400):**
+```json
+{
+  "error": "Email is required, Message is required"
+}
 ```
 
-**To get a SendGrid API key:**
-
-1. Sign up at [SendGrid](https://signup.sendgrid.com/)
-2. Verify your email address
-3. Go to [API Keys](https://app.sendgrid.com/settings/api_keys)
-4. Create a new API key with "Mail Send" permissions
-5. Copy the key to your `.env` file
-
-**Important:** You must verify your sender email in SendGrid:
-- Go to [Sender Authentication](https://app.sendgrid.com/settings/sender_auth)
-- Add and verify your `FROM_EMAIL` address
-
-### 3. Build the Function
-
-```bash
-npm run build
+**CORS Error (403):**
+```json
+{
+  "error": "Origin not allowed"
+}
 ```
 
-This compiles TypeScript to JavaScript in the `dist/` directory.
+**Method Not Allowed (405):**
+```json
+{
+  "error": "Method not allowed"
+}
+```
+
+**Server Error (500):**
+```json
+{
+  "error": "Failed to send message. Please try again later."
+}
+```
+
+## Configuration
+
+The function requires the following environment variables:
+
+- `SENDGRID_API_KEY`: SendGrid API key (from Secret Manager)
+- `EMAIL_FROM`: Sender email address (must be verified in SendGrid)
+- `EMAIL_REPLY_TO`: Reply-to email address
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins
+- `ENVIRONMENT`: Environment name (staging/production)
+
+These are configured via Pulumi in [`infrastructure/resources/contactForm.ts`](../../infrastructure/resources/contactForm.ts).
 
 ## Local Development
 
-### Run Locally
+### Prerequisites
 
-Start the function locally on port 8080:
+- Node.js 20 or higher
+- pnpm (or npm)
 
-```bash
-npm run build
-npm run dev
-```
-
-The function will be available at: `http://localhost:8080`
-
-### Watch Mode (Hot Reload)
-
-For development with automatic rebuild and reload:
+### Install Dependencies
 
 ```bash
-npm run dev:watch
+pnpm install
 ```
 
-This runs TypeScript in watch mode and automatically restarts the function when files change.
+### Build
+
+```bash
+# Compile TypeScript
+pnpm run build
+
+# Watch for changes
+pnpm run watch
+```
+
+### Package for Deployment
+
+```bash
+# Create function-source.zip
+pnpm run package
+```
+
+This creates a zip file with the source code that Pulumi uploads to Cloud Storage.
 
 ## Testing
 
 ### Test with curl
 
-**Valid submission:**
-
 ```bash
-curl -X POST http://localhost:8080 \\
-  -H "Content-Type: application/json" \\
-  -H "Origin: http://localhost:3000" \\
+# Successful submission
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://staging.dcmco.com.au" \
   -d '{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "company": "Acme Corp",
-    "phone": "+61 400 000 000",
-    "message": "I would like to inquire about your services."
+    "name": "Test User",
+    "email": "test@example.com",
+    "message": "This is a test message"
   }'
+
+# Test CORS rejection
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://evil.com" \
+  -d '{"name":"Test","email":"test@example.com","message":"Test"}'
+
+# Test validation
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://staging.dcmco.com.au" \
+  -d '{"name":"Test User"}'
+
+# Test honeypot
+curl -X POST "https://australia-southeast1-dcmco-prod-2026.cloudfunctions.net/dcmco-staging-contact-form" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://staging.dcmco.com.au" \
+  -d '{"name":"Test","email":"test@example.com","message":"Test","honeypot":"spam"}'
 ```
 
-**Expected response:**
-
-```json
-{
-  "success": true,
-  "message": "Thank you for your message. We will get back to you soon!"
-}
-```
-
-**Test CORS preflight:**
+### View Logs
 
 ```bash
-curl -X OPTIONS http://localhost:8080 \\
-  -H "Origin: http://localhost:3000" \\
-  -H "Access-Control-Request-Method: POST" \\
-  -H "Access-Control-Request-Headers: Content-Type" \\
-  -v
+# View recent logs
+gcloud functions logs read dcmco-staging-contact-form \
+  --region=australia-southeast1 \
+  --gen2 \
+  --limit=20
+
+# Follow logs in real-time
+gcloud functions logs read dcmco-staging-contact-form \
+  --region=australia-southeast1 \
+  --gen2 \
+  --limit=20 \
+  --follow
 ```
 
-**Test validation errors:**
+## Deployment
+
+The function is automatically deployed via Pulumi when changes are detected.
+
+### Manual Deployment
 
 ```bash
-# Missing required field
-curl -X POST http://localhost:8080 \\
-  -H "Content-Type: application/json" \\
-  -H "Origin: http://localhost:3000" \\
-  -d '{
-    "name": "John Doe",
-    "email": "invalid-email"
-  }'
+# From infrastructure directory
+cd ../../infrastructure
+
+# Preview changes
+pulumi preview
+
+# Deploy
+pulumi up
 ```
 
-**Expected validation error response:**
+### Deploy with gcloud
 
-```json
-{
-  "success": false,
-  "error": "Validation failed",
-  "details": [
-    {
-      "field": "email",
-      "message": "\"email\" must be a valid email"
-    },
-    {
-      "field": "message",
-      "message": "\"message\" is required"
-    }
-  ]
-}
+If you need to deploy manually:
+
+```bash
+gcloud functions deploy dcmco-staging-contact-form \
+  --gen2 \
+  --region=australia-southeast1 \
+  --runtime=nodejs20 \
+  --source=. \
+  --entry-point=contactForm \
+  --trigger-http \
+  --allow-unauthenticated
 ```
 
-### Test with Postman
+## Architecture
 
-1. Create a new POST request to `http://localhost:8080`
-2. Set headers:
-   - `Content-Type: application/json`
-   - `Origin: http://localhost:3000`
-3. Set body (raw JSON):
-   ```json
-   {
-     "name": "Jane Smith",
-     "email": "jane@example.com",
-     "message": "Test message from Postman"
-   }
-   ```
-4. Send the request
-
-### Test from Next.js Frontend
-
-In your Next.js app, create a contact form:
-
-```typescript
-// Example contact form submission
-async function submitContactForm(data: ContactFormData) {
-  const response = await fetch('http://localhost:8080', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.error || 'Failed to submit form');
-  }
-
-  return result;
-}
+```
+┌─────────────┐
+│   Browser   │
+└──────┬──────┘
+       │ POST /contact-form
+       ▼
+┌─────────────────────┐
+│  Cloud Function     │
+│  (Node.js 20)       │
+│  ┌────────────┐     │
+│  │ CORS Check │     │
+│  └─────┬──────┘     │
+│        ▼            │
+│  ┌────────────┐     │
+│  │ Validate   │     │
+│  │ Input      │     │
+│  └─────┬──────┘     │
+│        ▼            │
+│  ┌────────────┐     │
+│  │ SendGrid   │     │
+│  │ Send Email │     │
+│  └─────┬──────┘     │
+└────────┼────────────┘
+         │
+         ▼
+   ┌──────────┐
+   │ SendGrid │
+   │ API      │
+   └──────────┘
 ```
 
-## Validation Rules
+## Security
 
-The contact form validates:
-
-- **name**: String, 2-100 characters, required
-- **email**: Valid email address, required
-- **company**: String, max 100 characters, optional
-- **phone**: String, max 20 characters, optional
-- **message**: String, 10-1000 characters, required
-
-## CORS Configuration
-
-Allowed origins (configured in `src/index.ts`):
-
-- `http://localhost:3000` (local development)
-- `https://dcmco-prod-2026.web.app` (production Firebase)
-- `https://dcmco-staging.web.app` (staging Firebase)
-
-Add custom domains when configured:
-
-```typescript
-const ALLOWED_ORIGINS = [
-  // ... existing origins
-  'https://www.dcmco.com.au',
-  'https://staging.dcmco.com.au',
-];
-```
-
-## Environment Variables
-
-| Variable | Description | Required | Example |
-|----------|-------------|----------|---------|
-| `SENDGRID_API_KEY` | SendGrid API key | Yes | `SG.xxx...` |
-| `CONTACT_EMAIL` | Recipient email for form submissions | No | `contact@dcmco.com.au` |
-| `FROM_EMAIL` | Sender email address (must be verified) | No | `noreply@dcmco.com.au` |
+- **CORS**: Only accepts requests from configured origins
+- **Input Validation**: All fields validated for type, format, and length
+- **Honeypot**: Hidden field catches automated bots
+- **Secret Management**: API key stored in Google Secret Manager
+- **Minimal Permissions**: Service account has only required IAM roles
+- **HTTPS Only**: Function enforces HTTPS connections
+- **Rate Limiting**: Cloud Functions provides built-in rate limiting
 
 ## Troubleshooting
 
-### "SENDGRID_API_KEY not set"
+### Email not sending
 
-- Ensure `.env` file exists in `functions/contact-form/`
-- Check that `SENDGRID_API_KEY` is set in `.env`
-- Restart the function after adding the key
+1. Check SendGrid logs at https://app.sendgrid.com/
+2. Verify sender email is verified in SendGrid
+3. Check Cloud Function logs for errors
+4. Verify Secret Manager has correct API key
 
-### "Origin not allowed" (CORS error)
+### CORS errors
 
-- Check that the request includes an `Origin` header
-- Verify the origin is in the `ALLOWED_ORIGINS` array
-- Add your origin to the list if needed
+1. Ensure request includes `Origin` header
+2. Verify origin is in `ALLOWED_ORIGINS` config
+3. Check browser console for specific CORS error
 
-### "Forbidden - could not verify your access"
+### Function not responding
 
-- Verify your sender email in SendGrid
-- Check that `FROM_EMAIL` matches a verified email
-- Wait a few minutes after email verification
+1. Check function status: `gcloud functions describe dcmco-staging-contact-form --region=australia-southeast1 --gen2`
+2. View logs for errors
+3. Verify function has completed deployment
+4. Check build logs in Cloud Build
 
-### Email not received
+## License
 
-- Check SendGrid activity feed: https://app.sendgrid.com/email_activity
-- Verify recipient email address is correct
-- Check spam folder
-- Ensure SendGrid API key has "Mail Send" permission
-
-## Scripts Reference
-
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start function locally on port 8080 |
-| `npm run dev:watch` | Start with hot reload (recommended for development) |
-| `npm run build` | Compile TypeScript to JavaScript |
-| `npm run build:watch` | Compile TypeScript in watch mode |
-| `npm run clean` | Remove dist directory |
-
-## Next Steps
-
-After local testing:
-
-1. **Deploy with CDKTF** - Add Cloud Function resource to your CDKTF stack
-2. **Set environment variables** - Configure secrets in Google Cloud
-3. **Test deployed function** - Verify it works in production
-4. **Update frontend** - Point form to production Cloud Function URL
-
-## Resources
-
-- [Cloud Functions Framework](https://github.com/GoogleCloudPlatform/functions-framework-nodejs)
-- [SendGrid Node.js Library](https://github.com/sendgrid/sendgrid-nodejs)
-- [Joi Validation](https://joi.dev/api/)
-- [Cloud Functions Gen 2 Documentation](https://cloud.google.com/functions/docs/2nd-gen/overview)
+MIT License - Copyright (c) 2026 DCM CO

@@ -1,39 +1,32 @@
 {
-  "name": "dcmco-contact-form",
+  "name": "contact-form-function",
   "version": "1.0.0",
-  "description": "Cloud Function for handling DCMCO website contact form submissions",
+  "description": "Cloud Function for handling contact form submissions via SendGrid",
   "main": "dist/index.js",
-  "engines": {
-    "node": "20"
-  },
   "scripts": {
-    "dev": "npx @google-cloud/functions-framework --target=contactForm --signature-type=http --port=8080 --source=dist",
-    "dev:watch": "concurrently \"npm run build:watch\" \"nodemon --watch dist --exec 'npm run dev'\"",
     "build": "tsc",
-    "build:watch": "tsc --watch",
+    "watch": "tsc --watch",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node dist/index.js"
+    "package": "rm -f function-source.zip && zip -r function-source.zip src/ package.json tsconfig.json package-lock.json -x '*.swp' -x '*.swo'",
+    "test": "echo \"No tests yet\""
   },
-  "keywords": [
-    "cloud-functions",
-    "contact-form",
-    "sendgrid"
-  ],
-  "author": "DCM CO",
-  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
-    "@google-cloud/functions-framework": "^3.4.2",
-    "@sendgrid/mail": "^8.1.4",
-    "express": "^4.21.2",
-    "joi": "^17.13.3"
+    "@sendgrid/mail": "^8.1.0",
+    "@google-cloud/functions-framework": "^3.3.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/node": "^20.17.10",
-    "concurrently": "^9.1.2",
-    "nodemon": "^3.1.9",
-    "typescript": "^5.7.3"
-  }
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "cloud-function",
+    "contact-form",
+    "sendgrid",
+    "email"
+  ],
+  "author": "DCMCO",
+  "license": "MIT"
 }
