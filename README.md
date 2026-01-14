@@ -379,6 +379,43 @@ npx google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
 # Try installing again
 pnpm install
 ```
+### Update Design System to latest
+
+To update `@dcmco/design-system` to the latest version:
+
+```bash
+# Check available versions
+npm view @dcmco/design-system versions
+
+# Install the latest version explicitly
+pnpm install @dcmco/design-system@latest
+
+# Or install a specific version
+pnpm install @dcmco/design-system@0.4.0
+```
+
+**Common issues:**
+
+1. **Version not updating**: Using `pnpm install` alone won't upgrade to a new minor version if your `package.json` has `^0.3.1`. The caret (`^`) only allows patch updates (0.3.x), not minor bumps (0.4.x). Use `@latest` or `@0.4.0` explicitly.
+
+2. **401 Unauthorized**: Your GCP credentials have expired. Run:
+   ```bash
+   npx google-artifactregistry-auth
+   ```
+
+3. **403 Forbidden**: The service account lacks Artifact Registry Reader permissions. Grant access via:
+   ```bash
+   gcloud artifacts repositories add-iam-policy-binding npm-packages \
+     --location=australia-southeast1 \
+     --member="serviceAccount:YOUR_SERVICE_ACCOUNT@PROJECT.iam.gserviceaccount.com" \
+     --role="roles/artifactregistry.reader"
+   ```
+
+4. **Stale lockfile**: If the version in `node_modules` doesn't match `package.json`, delete the lockfile and reinstall:
+   ```bash
+   rm pnpm-lock.yaml
+   pnpm install
+   ```
 
 ### Build Errors
 
