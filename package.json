@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "preinstall": "npx google-artifactregistry-auth",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -10,7 +11,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {
-    "@dcmco/design-system": "^0.3.1",
+    "@dcmco/design-system": "^0.5.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18"
